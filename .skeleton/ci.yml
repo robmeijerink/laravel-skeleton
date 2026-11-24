@@ -19,6 +19,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
+      # Dependabot bumps PHP in .devcontainer/Dockerfile but cannot read the FrankenPHP tag in Dockerfile
+      # (1-php8.5-trixie), so a PHP bump needs that line changed by hand. This makes sure it is not forgotten.
+      - name: PHP versions match
+        run: |
+          dev=$(sed -nE 's/^FROM php:([0-9]+\.[0-9]+).*/\1/p' .devcontainer/Dockerfile)
+          prod=$(sed -nE 's/^FROM dunglas\/frankenphp:[0-9]+-php([0-9]+\.[0-9]+).*/\1/p' Dockerfile)
+          if [ -z "$dev" ] || [ "$dev" != "$prod" ]; then
+            echo "::error file=Dockerfile::PHP is '$dev' in .devcontainer/Dockerfile but '$prod' in Dockerfile. Change the first FROM line in Dockerfile to: FROM dunglas/frankenphp:1-php$dev-trixie AS base"
+            exit 1
+          fi
+
       # The same image, database and commands as `task check`, so CI and local runs can't drift apart
       - name: Create Cache Volumes
         run: docker volume create php_composer && docker volume create bun_cache

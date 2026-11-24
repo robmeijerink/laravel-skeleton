@@ -2,7 +2,8 @@ version: 2
 updates:
   # PHP minor in the dev image (ARG PHP_VERSION) and the production image: a bump PR shows in CI
   # whether the new PHP works, so nobody has to remember to look.
-  # One PR for both, so dev and production never run different PHP minors
+  # Dependabot reads the PHP version from .devcontainer/Dockerfile only: the FrankenPHP tag in Dockerfile
+  # (1-php8.5-trixie) is not recognised. CI fails until you update that line by hand in the PR.
   - package-ecosystem: docker
     directories: ["/", "/.devcontainer"]
     schedule:
