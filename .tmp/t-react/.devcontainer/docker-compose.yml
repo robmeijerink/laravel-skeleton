@@ -1,0 +1,127 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    # Forward signals so `docker compose stop` is instant instead of a 10s SIGKILL
+    init: true
+    environment:
+      # `php artisan serve` must listen on all interfaces inside the container
+      SERVER_HOST: 0.0.0.0
+    volumes:
+      - ../:/app
+      # Composer and Bun caches are shared by all projects (like a local ~/.composer and ~/.bun)
+      - composer_cache:/composer/cache
+      - bun_cache:/root/.bun/install/cache
+      # Native binaries (Tailwind, Rollup, ...) must be built for Linux, and a volume is much
+      # faster than a bind mount on macOS. The host never runs them.
+      - node_modules:/app/node_modules
+    # `composer run dev` (from the Laravel app): serve, queue, logs and Vite together
+    command: composer run dev
+    # Bound to localhost only
+    ports:
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-trixie
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: app
+    volumes:
+      - postgres:/var/lib/postgresql
+      # Creates the separate `testing` database that the tests use (see docs/decisions/002-agent-sandbox.md)
+      - ./postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    # No published port: it would clash with every other project's Postgres. The containers reach it
+    # as `postgres:5432`; from the host use `task artisan -- db` or add a `ports:` line yourself.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+
+
+  # Sandbox for Claude Code (`task agent`): sees only this project (see docs/decisions/002-agent-sandbox.md)
+  agent:
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev-agent
+      # The project's own dev image (built first), so the agent has the same PHP, extensions, Composer and Bun as `app`
+      additional_contexts:
+        devimage: service:app
+      args:
+        UID: ${AGENT_UID:-1000}
+        BASE_IMAGE: devimage
+        OWNED_DIRS: /app/vendor /app/node_modules /home/agent/.cache/composer /home/agent/.bun/install/cache
+    # Only started by name (`task agent`), not by `task dev` or a plain `compose up`
+    profiles: [agent]
+    working_dir: /app
+    init: true
+    command: sleep infinity
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 512
+    environment:
+      # Tests and artisan use the committed .env.testing (fake keys, the `testing` database), never the dev data
+      APP_ENV: testing
+      COMPOSER_HOME: /home/agent/.composer
+      COMPOSER_CACHE_DIR: /home/agent/.cache/composer
+    # .secrets/ is hidden from the agent (empty and read-only), so it can't read what you keep there.
+    tmpfs:
+      - /app/.secrets:ro,size=1m
+    volumes:
+      - ../:/app
+      # The mounts below are read-only. Otherwise the agent could break out of the sandbox by editing
+      # files that the host later runs or reads: git hooks, Taskfile, compose files and Claude Code
+      # hooks (.claude/). A read-only .git also stops the agent from committing; `git status`,
+      # `git diff` and `git log` still work.
+      - ../.git:/app/.git:ro
+      - ../Taskfile.yaml:/app/Taskfile.yaml:ro
+      - ../.devcontainer:/app/.devcontainer:ro
+      - ../.claude:/app/.claude:ro
+      - ../Taskfile.local.yml:/app/Taskfile.local.yml:ro
+      # `task` in the sandbox (no Docker there): runs the commands directly. Stack-specific, like Taskfile.yaml
+      - ./agent-task.sh:/usr/local/bin/task:ro
+      # Separate volumes instead of the host's vendor/ and the shared caches: Composer scripts and
+      # service providers in vendor/ run on the host later, so the agent must not write there.
+      - agent_vendor:/app/vendor
+      - agent_node_modules:/app/node_modules
+      - agent_composer_cache:/home/agent/.cache/composer
+      - agent_bun_cache:/home/agent/.bun/install/cache
+      # Claude login: log in once with /login, it survives restarts and rebuilds
+      - agent_claude:/home/agent/.claude
+      # Optional personal skills (see README), read-only so the agent can't change them
+      - ai-skills-provider:/home/agent/.claude/skills:ro
+      # Optional personal instructions (see README), read-only as well
+      - ai-instructions-provider:/opt/ai-instructions:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  # Personal skills shared by all projects; created empty by `task agent`
+  ai-skills-provider:
+    external: true
+  # Personal instructions shared by all projects; created empty by `task agent`
+  ai-instructions-provider:
+    external: true
+  # Created by `task` and the Dev Container's initializeCommand
+  composer_cache:
+    name: php_composer
+    external: true
+  bun_cache:
+    name: bun_cache
+    external: true
+  node_modules:
+  postgres:
+  agent_vendor:
+  agent_node_modules:
+  agent_composer_cache:
+  agent_bun_cache:
+  agent_claude:

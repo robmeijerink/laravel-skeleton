@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Read-only token: CI only builds and tests
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Format, Analyse & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      # The same image, database and commands as `task check`, so CI and local runs can't drift apart
+      - name: Create Cache Volumes
+        run: docker volume create php_composer && docker volume create bun_cache
+
+      - name: Check
+        run: |
+          docker compose -f .devcontainer/docker-compose.yml run --rm app sh -euc '
+            composer install --no-interaction --no-progress
+            if [ -f package.json ]; then bun install --frozen-lockfile && bun run build; fi
+            composer qa:ci
+          '
+
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      # Catches problems that only show in the production image (extensions, the frontend build)
+      - name: Build Image
+        run: docker build .

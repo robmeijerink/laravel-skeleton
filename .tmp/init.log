@@ -1,0 +1,91 @@
+task: [init] .skeleton/init.sh --react '--name=treact'
+Creating 'treact': stack=react auth=1 filament=0 mailpit=0 redis=0
+ Network t-react_devcontainer_default Creating 
+ Network t-react_devcontainer_default Created 
+ Volume t-react_devcontainer_node_modules Creating 
+ Volume t-react_devcontainer_node_modules Created 
+ Volume t-react_devcontainer_postgres Creating 
+ Volume t-react_devcontainer_postgres Created 
+ Container t-react_devcontainer-app-run-a7e8dd1ac952 Creating 
+ Container t-react_devcontainer-app-run-a7e8dd1ac952 Created 
+[?25l
+ [36m⠶[39m Creating Laravel application...
+[999D[2A[J [32m✔[39m Creating Laravel application...
+[?25h    [?25l    
+ [36m⠶[39m Composer Lint
+    [999D[2A[J [32m✔[39m Composer Lint
+[?25h[?25l    
+ [36m⠶[39m Generate Wayfinder Resources
+    [999D[2A[J [32m✔[39m Generate Wayfinder Resources
+[?25h[?25l
+ [36m⠶[39m Running database migrations...
+[999D[2A[J [32m✔[39m Running database migrations...
+[?25h[?25l
+ [36m⠶[39m Setting up Pest...
+[999D[2A[J [32m✔[39m Setting up Pest...
+[?25h[?25l
+ [36m⠶[39m Fixing test code style...
+[999D[2A[J [32m✔[39m Fixing test code style...
+[?25h[?25l
+ [36m⠶[39m Setting up frontend dependencies with bun...
+[999D[2A[J [32m✔[39m Setting up frontend dependencies with bun...
+[?25h
+[90m ┌[39m [36mApplication ready[39m [90m───────────────────────────────────────────┐[39m
+[90m │[39m You can start your local development using:                  [90m│[39m
+[90m │[39m                                                              [90m│[39m
+[90m │[39m [2m1.[22m cd laravel-app                                            [90m│[39m
+[90m │[39m [2m2.[22m composer run dev                                          [90m│[39m
+[90m │[39m                                                              [90m│[39m
+[90m │[39m New to Laravel? Check out our ]8;;https://laravel.com/docs/installation#next-steps\[4;36mdocumentation]8;;\[0m.                 [90m│[39m
+[90m │[39m                                                              [90m│[39m
+[90m │[39m [1mBuild something amazing![0m                                     [90m│[39m
+[90m └──────────────────────────────────────────────────────────────┘[39m
+
+[1.05ms] ".env"
+bun install v1.4.5 (a7733435c)
+
++ @laravel/vite-plugin-wayfinder@0.1.11
++ @rolldown/plugin-babel@0.2.4
++ @types/node@22.20.5
++ babel-plugin-react-compiler@1.0.0
++ vite-plus@1.4.0
++ @laravel/multiplex@0.4.5
++ @rollup/rollup-linux-x64-gnu@4.9.5
++ @tailwindcss/oxide-linux-x64-gnu@4.3.5
++ lightningcss-linux-x64-gnu@1.33.0
++ @inertiajs/react@3.11.0
++ @inertiajs/vite@3.11.0
++ @laravel/passkeys@0.2.0
++ @radix-ui/react-avatar@1.3.1
++ @radix-ui/react-checkbox@1.4.1
++ @radix-ui/react-collapsible@1.2.1
++ @radix-ui/react-dialog@1.3.1
++ @radix-ui/react-dropdown-menu@2.2.1
++ @radix-ui/react-label@2.1.17
++ @radix-ui/react-navigation-menu@1.4.1
++ @radix-ui/react-select@2.4.1
++ @radix-ui/react-separator@1.2.0
++ @radix-ui/react-slot@1.5.0
++ @radix-ui/react-toggle@1.2.1
++ @radix-ui/react-toggle-group@1.2.1
++ @radix-ui/react-tooltip@1.4.1
++ @tailwindcss/vite@4.3.5
++ @types/react@19.3.0
++ @types/react-dom@19.3.0
++ @vitejs/plugin-react@6.3.0
++ class-variance-authority@0.7.1
++ clsx@2.1.1
++ concurrently@10.0.7
++ input-otp@1.5.0
++ laravel-vite-plugin@3.2.1
++ lucide-react@0.475.0
++ react@19.3.1
++ react-dom@19.3.1
++ sonner@2.0.8
++ tailwind-merge@3.7.1
++ tailwindcss@4.3.5
++ tw-animate-css@1.4.0
++ typescript@5.9.3
++ vite@1.4.0
+
+268 packages installed [500.00ms]

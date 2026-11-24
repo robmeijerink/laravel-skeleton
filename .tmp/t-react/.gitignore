@@ -1,0 +1,65 @@
+# Environment variables (.env.example and the fake-valued .env.testing are committed)
+.env
+.env.*
+*.env
+!.env.example
+!.env.testing
+# Secrets hidden from the agent sandbox (see docs/decisions/002-agent-sandbox.md)
+/.secrets/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Personal AI agent settings
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Machine-specific tasks (created by `task agent` if missing)
+Taskfile.local.yml
+/.phpunit.cache
+/bootstrap/ssr
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/resources/js/actions
+/resources/js/routes
+/resources/js/wayfinder
+/vendor
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/auth.json
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+/.agents
+/.amp
+/.claude
+/.codex
+/.cursor
+/.factory
+/.grok
+/.junie
+/.kiro
+/.pi
+/.mcp.json
+/AGENTS.md
+/CLAUDE.md
+/boost.json
+/opencode.json
+/opencode.jsonc
