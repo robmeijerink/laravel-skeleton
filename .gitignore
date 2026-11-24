@@ -1,0 +1,22 @@
+# Environment variables (.env.example and the fake-valued .env.testing are committed)
+.env
+.env.*
+*.env
+!.env.example
+!.env.testing
+# Secrets hidden from the agent sandbox (see docs/decisions/002-agent-sandbox.md)
+/.secrets/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Personal AI agent settings
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Machine-specific tasks (created by `task agent` if missing)
+Taskfile.local.yml

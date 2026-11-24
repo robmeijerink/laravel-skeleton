@@ -1,0 +1,40 @@
+name: Skeleton smoke test
+
+# The template contains no Laravel code: `task init` fetches the newest installer and starter kits.
+# So the template can break without a single commit here. This builds every variant weekly and
+# shows when an upstream change (installer flags, a starter kit, a PHP release) needs attention.
+# Removed by `task init` in generated projects.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  variant:
+    name: ${{ matrix.flags }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flags:
+          - --react --mailpit --redis
+          - --vue --no-auth
+          - --livewire --filament
+          - --blade
+          - --spa-react
+          - --spa-vue
+    steps:
+      - uses: actions/checkout@v7
+      - uses: arduino/setup-task@v3
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: task init -- ${{ matrix.flags }} --name=smoke
+      - run: task check
+      # The exact command of the generated project's CI (.github/workflows/ci.yml)
+      - run: docker compose -f .devcontainer/docker-compose.yml run --rm -T app composer qa:ci
+      - run: docker build .

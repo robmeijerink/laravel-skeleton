@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # PHP minor in the dev image (ARG PHP_VERSION) and the production image: a bump PR shows in CI
+  # whether the new PHP works, so nobody has to remember to look.
+  # One PR for both, so dev and production never run different PHP minors
+  - package-ecosystem: docker
+    directories: ["/", "/.devcontainer"]
+    schedule:
+      interval: weekly
+    groups:
+      php:
+        patterns: ["php", "dunglas/frankenphp"]
+
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      composer:
+        patterns: ["*"]
+
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      bun:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

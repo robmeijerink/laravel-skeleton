@@ -1,0 +1,12 @@
+{
+  "name": "laravel-skeleton",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "initializeCommand": "docker volume create php_composer && docker volume create bun_cache",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "extensions": ["bmewburn.vscode-intelephense-client", "bradlc.vscode-tailwindcss"]
+    }
+  }
+}

@@ -1,0 +1,36 @@
+name: Dependabot auto-merge
+
+# Keeps maintenance near zero: Dependabot PRs (minor and patch, including the PHP minor in the
+# Dockerfiles) merge on their own as soon as the required checks are green. A red PR stays open for
+# you to look at; major versions always stay open.
+#
+# Needs: repo setting "Allow auto-merge", and a branch protection rule or ruleset on main that
+# requires the checks. Without one, `gh pr merge --auto` merges immediately, before CI has even
+# finished, so this workflow refuses to enable auto-merge on an unprotected branch.
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: guard
+        run: echo "protected=$(gh api "repos/${{ github.repository }}/branches/${{ github.event.pull_request.base.ref }}" --jq .protected)" >> "$GITHUB_OUTPUT"
+
+      - if: steps.guard.outputs.protected != 'true'
+        run: echo "::warning::The base branch has no protection rule requiring checks; not enabling auto-merge."
+
+      - if: steps.guard.outputs.protected == 'true' && steps.meta.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --squash "$PR_URL"

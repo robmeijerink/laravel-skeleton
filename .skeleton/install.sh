@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# Container side of `task init`: lets the official Laravel installer create the app in a temporary
+# folder (it refuses a non-empty one), merges it into the repo without overwriting skeleton files,
+# applies the skeleton's settings, then removes everything that was only needed for init.
+set -euo pipefail
+cd /app
+source .skeleton/lib.sh
+
+STACK="$1" AUTH="$2" FILAMENT="$3" MAILPIT="$4" REDIS="$5" NAME="$6"
+TMP=/tmp/laravel-app
+rm -rf "$TMP"
+
+# ---- 1. Laravel installer, always the newest release and starter kits -------------------------
+composer global update laravel/installer --no-interaction --quiet
+args=(--database=pgsql --pest --bun --no-boost --no-interaction)
+[ "$AUTH" = 1 ] || args+=(--no-authentication)
+case "$STACK" in
+  react|vue|livewire) args+=("--$STACK") ;;
+  blade|spa-react|spa-vue) ;; # no starter kit
+  *) echo "Unknown stack: $STACK" >&2; exit 1 ;;
+esac
+# The kits run a post-install hook (`install:features`) that calls npm when told nothing else; this image
+# has no Node. With this flag the hook skips it and the installer installs the packages with Bun itself.
+(cd /tmp && LARAVEL_INSTALLER_NO_NODE=1 laravel new laravel-app "${args[@]}")
+
+# ---- 2. Merge into the repo: skeleton files win, the app's own files are added ----------------
+# vendor/ and node_modules/ are reinstalled below: their paths and caches point at /tmp
+rsync -a --ignore-existing \
+  --exclude=/.git --exclude=/vendor --exclude=/node_modules --exclude=/.github \
+  --exclude=/README.md --exclude='/bootstrap/cache/*.php' --exclude=/AGENTS.md --exclude=/CLAUDE.md \
+  "$TMP"/ /app/
+# .gitignore: keep ours, add the lines Laravel has that we don't
+grep -vxFf .gitignore "$TMP/.gitignore" >> .gitignore || true
+rm -rf "$TMP"
+
+# ---- 3. Own stubs for the stacks without a starter kit ----------------------------------------
+if [ -d ".skeleton/stubs/$STACK" ]; then
+  composer install --no-interaction --no-progress --quiet
+  bash ".skeleton/stubs/$STACK/install.sh"
+fi
+
+# ---- 4. Database, Postgres in Compose; tests on their own database ----------------------------
+for f in .env .env.example; do
+  setenv "$f" APP_NAME "$NAME"
+  setenv "$f" APP_URL http://localhost:8000
+  setenv "$f" DB_CONNECTION pgsql
+  setenv "$f" DB_HOST postgres
+  setenv "$f" DB_PORT 5432
+  setenv "$f" DB_DATABASE app
+  setenv "$f" DB_USERNAME app
+  setenv "$f" DB_PASSWORD secret
+done
+
+# ---- 5. Dependencies in the repo (node_modules was left behind in the temporary folder) ------
+composer install --no-interaction --no-progress --quiet
+[ -f package.json ] && bun install --no-progress
+# Add-ons
+[ "$MAILPIT" = 1 ] && bash .skeleton/addons/mailpit.sh
+[ "$REDIS" = 1 ] && bash .skeleton/addons/redis.sh
+[ "$FILAMENT" = 1 ] && bash .skeleton/addons/filament.sh
+for block in mailpit redis; do
+  var=$(echo "$block" | tr a-z A-Z)
+  if [ "${!var}" = 1 ]; then keep_block .devcontainer/docker-compose.yml "$block"; else drop_block .devcontainer/docker-compose.yml "$block"; fi
+done
+
+# ---- 6. Tests: committed .env.testing with fake values, never the dev data --------------------
+cp .env.example .env.testing
+setenv .env.testing APP_ENV testing
+setenv .env.testing APP_KEY "base64:$(printf 'fake-key-only-for-the-tests-1234' | base64)"
+setenv .env.testing APP_DEBUG true
+setenv .env.testing DB_DATABASE testing
+setenv .env.testing CACHE_STORE array
+setenv .env.testing SESSION_DRIVER array
+setenv .env.testing QUEUE_CONNECTION sync
+setenv .env.testing MAIL_MAILER array
+setenv .env.testing BCRYPT_ROUNDS 4
+# phpunit.xml may not override the database with SQLite from the installer's template
+sed -i '/name="DB_CONNECTION"/d;/name="DB_DATABASE"/d;/name="DB_URL"/d' phpunit.xml
+sed -i 's|^\( *\)<env name="APP_ENV" value="testing"/>|&\n\1<env name="DB_CONNECTION" value="pgsql"/>\n\1<env name="DB_DATABASE" value="testing"/>|' phpunit.xml
+grep -q 'name="DB_DATABASE" value="testing"' phpunit.xml || { echo "phpunit.xml: could not set the testing database" >&2; exit 1; }
+
+# ---- 7. Quality tooling: Larastan (max), Pest plugins, Rector, Essentials ---------------------
+composer require --dev --no-interaction --quiet \
+  larastan/larastan pestphp/pest-plugin-arch pestphp/pest-plugin-type-coverage pestphp/pest-plugin-phpstan \
+  rector/rector
+# Stricter Laravel defaults (strict models, immutable dates, no destructive commands in production, ...)
+composer require nunomaduro/essentials --no-interaction --quiet
+cat > rector.php <<'RECTOR'
+<?php
+
+declare(strict_types=1);
+
+use Rector\Config\RectorConfig;
+
+// Kept to the stable, documented core of Rector so it keeps working across major versions
+return RectorConfig::configure()
+    ->withPaths([__DIR__.'/app', __DIR__.'/config', __DIR__.'/database', __DIR__.'/routes', __DIR__.'/tests'])
+    ->withPhpSets()
+    ->withPreparedSets(deadCode: true, codeQuality: true, typeDeclarations: true);
+RECTOR
+# The kits bring their own phpstan.neon (level 7); the skeleton raises it to max. Without a kit, write one.
+if [ -f phpstan.neon ]; then
+  sed -i 's/^\( *level:\) .*/\1 max/' phpstan.neon
+else
+  cat > phpstan.neon <<'NEON'
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: max
+    paths:
+        - app
+        - config
+        - database
+        - routes
+NEON
+fi
+grep -q 'level: max' phpstan.neon || { echo "phpstan.neon: could not set level max" >&2; exit 1; }
+rm -f pnpm-workspace.yaml
+mkdir -p tests/Unit
+cat > tests/Unit/ArchTest.php <<'PHP'
+<?php
+
+declare(strict_types=1);
+
+// Architecture rules: they fail the build when code breaks the house style. Add your own per project,
+// e.g. arch()->expect('App\Models')->toExtend('Illuminate\Database\Eloquent\Model').
+arch()->preset()->php();
+arch()->preset()->security();
+PHP
+# One definition of "is it good", used by `task check`, the sandbox and CI
+php -r '
+  $file = "composer.json";
+  $json = json_decode(file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
+  $json["scripts"]["fix"] = "pint --quiet";
+  $json["scripts"]["stan"] = "phpstan analyse --no-progress --memory-limit=1G";
+  $json["scripts"]["test:unit"] = "pest --compact";
+  $json["scripts"]["test:types"] = "pest --type-coverage --min=100 --compact";
+  // Composer kills a script after 300s; a cold PHPStan cache on a slow machine can need longer
+  $json["scripts"]["rector"] = "rector --no-progress-bar";
+  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@rector", "@fix", "@stan", "@test:unit", "@test:types"];
+  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "rector --dry-run --no-progress-bar", "pint --test", "@stan", "@test:unit", "@test:types"];
+  file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+'
+
+# ---- 8. Bun instead of npm in the scripts the installer wrote ---------------------------------
+sed -i 's/npm run /bun run /g; s/npm install/bun install/g; s/npx /bunx /g' composer.json
+bash .skeleton/patch-vite.sh
+
+# ---- 9. Secrets out of the agent's reach: .env lives in .secrets/ and is symlinked ------------
+mkdir -p .secrets
+mv .env .secrets/.env
+ln -s .secrets/.env .env
+
+# ---- 10. Format, baseline for code the installer wrote, clean up ------------------------------
+# Bring the installer's own code up to the house rules: Rector adds missing types, Pint formats
+vendor/bin/rector --no-progress-bar > /dev/null 2>&1 || true
+vendor/bin/pint --quiet || true
+vendor/bin/phpstan analyse --no-progress --memory-limit=1G --generate-baseline > /dev/null 2>&1 || true
+if [ -s phpstan-baseline.neon ] && grep -q 'message' phpstan-baseline.neon; then
+  sed -i 's|^includes:|&\n    - phpstan-baseline.neon|' phpstan.neon
+else
+  rm -f phpstan-baseline.neon
+fi
+# Type coverage must be 100. Whatever the installer's code still lacks after Rector gets a line-level
+# `@pest-ignore-type` marker (listed below), so the minimum stays 100 for everything written afterwards.
+# If that does not get to 100 either, start at the measured value and say so instead of shipping a red
+# first `task check`; the minimum only goes up.
+coverage() {
+  vendor/bin/pest --type-coverage --min=0 2>&1 | sed 's/\x1b\[[0-9;]*m//g'
+}
+total() { grep -o 'Total: *[0-9.]*' | grep -o '[0-9.]*$' | head -1 || true; }
+report=$(coverage)
+if [ "$(echo "$report" | total | cut -d. -f1)" -lt 100 ]; then
+  echo "NOTE: untyped code from the installer that Rector could not fix, marked with @pest-ignore-type:" >&2
+  echo "$report" | php .skeleton/ignore-untyped.php > /dev/null
+  vendor/bin/pint --quiet || true
+  report=$(coverage)
+fi
+total=$(echo "$report" | total)
+if [ -n "$total" ] && [ "${total%.*}" -lt 100 ]; then
+  sed -i "s/--type-coverage --min=100/--type-coverage --min=${total%.*}/" composer.json
+  echo "NOTE: type coverage is still ${total}% after marking; the minimum starts at ${total%.*} instead of 100." >&2
+fi
+
+sed -i 's/laravel-skeleton/'"$NAME"'/g' .devcontainer/devcontainer.json
+drop_block Taskfile.yaml skeleton
+# The project's CI lives in the template as .skeleton/ci.yml: in the template itself it would fail (no app yet)
+mkdir -p .github/workflows && mv .skeleton/ci.yml .github/workflows/ci.yml
+cp .skeleton/README.project.md README.md
+sed -i "s/__NAME__/$NAME/g" README.md
+# The template's MIT LICENSE is not the project's: pick your own (the Laravel app itself is MIT in composer.json)
+rm -rf .skeleton .github/workflows/skeleton-smoke.yml LICENSE
+echo "Done. Next: task check, then task dev"
