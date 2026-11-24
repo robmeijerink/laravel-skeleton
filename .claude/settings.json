@@ -10,6 +10,7 @@
     "ask": [
       "Bash(task pun -- require:*)",
       "Bash(task pun -- update:*)",
+      "Bash(task pun -- x:*)",
       "Bash(task composer -- require:*)",
       "Bash(task composer -- update:*)",
       "Bash(task bun -- add:*)"
