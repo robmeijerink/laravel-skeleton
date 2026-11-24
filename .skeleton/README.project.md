@@ -20,7 +20,7 @@ Arguments for the underlying tool go after `--`.
 | :--- | :--- |
 | `task dev` | Start the app at http://localhost:8000 |
 | `task down` | Stop the containers |
-| `task check` | Run Rector, Pint, Larastan, the tests and the type-coverage check. Run this before every commit. |
+| `task check` | Run Rector, Pint, the frontend checks, Larastan, the tests and the type-coverage check. Run this before every commit. |
 | `task test` | Run the tests, for example `task test -- --filter=UserTest` |
 | `task fmt` | Format the code with Pint |
 | `task artisan -- <command>` | Run Artisan, for example `task artisan -- make:model Post -m` |
@@ -42,6 +42,8 @@ Arguments for the underlying tool go after `--`.
 
 Mailpit (http://localhost:8025) and Redis (`localhost:6379`) are there too if you chose them during setup. All ports are only reachable from your own machine; change them in `.devcontainer/docker-compose.yml`. PostgreSQL is not published, so it never clashes with another project's database; add a `ports:` entry to the `postgres` service to connect a database tool.
 
+**Hot reload.** Vite checks for changed files every 300 ms instead of waiting for file events, which do not always reach the container. Change the interval with `CHOKIDAR_INTERVAL` in `.devcontainer/docker-compose.yml`.
+
 **VS Code.** Choose *Reopen in Container* to work inside the app container, with the Intelephense and Tailwind CSS extensions installed.
 
 **Linux.** The app container runs as root, so files it creates (for example with `task artisan -- make:model`) are owned by root.
@@ -52,13 +54,16 @@ Mailpit (http://localhost:8025) and Redis (`localhost:6379`) are there too if yo
 
 1. **Rector** removes dead code, simplifies code, adds missing types and applies PHP upgrades (`rector.php`).
 2. **Pint** formats the code with the Laravel preset.
-3. **Larastan** analyses the code at level max, the strictest level (`phpstan.neon`). If the starter kit's code did not pass, it is listed in `phpstan-baseline.neon`; keep that list from growing.
-4. **Pest** runs the tests, including the architecture rules in `tests/Unit/ArchTest.php`.
-5. **Pest type coverage** checks that every parameter, return value and property has a type. The minimum is 100% (`test:types` in `composer.json`).
+3. **Frontend checks**, if the project has them: the starter kit's lint and format check (`bun run check:fix`) and the TypeScript check (`bun run types:check`).
+4. **Larastan** analyses the code at level max, the strictest level (`phpstan.neon`). If the starter kit's code did not pass, it is listed in `phpstan-baseline.neon`; keep that list from growing.
+5. **Pest** runs the tests, including the architecture rules in `tests/Unit/ArchTest.php`.
+6. **Pest type coverage** checks that every parameter, return value and property has a type. The minimum is 100% (`test:types` in `composer.json`).
 
-Rector and Pint change files; the other steps only report. CI runs the same steps but changes nothing, so it fails if Rector or Pint would still change something.
+Rector, Pint and the frontend formatter change files; the other steps only report. CI runs the same steps but changes nothing, so it fails if any of them would still change something. `.prettierignore` keeps the frontend formatter away from the files that came with the template.
 
 The steps are Composer scripts, so `task check`, the AI sandbox and CI share one definition: `composer qa` runs them all, `composer qa:ci` is the CI version, and `rector`, `fix`, `stan`, `test:unit` and `test:types` run one step each.
+
+**Code coverage.** Run `task test -- --coverage` (or `composer test:coverage`) for a coverage report. No minimum is enforced; add `--min=<percentage>` to the `test:coverage` script and to `qa` if you want one.
 
 If the starter kit contained code that could not be typed automatically, that line is marked with `// @pest-ignore-type`. New code gets no such exceptions.
 
@@ -83,7 +88,7 @@ Never run `php artisan config:cache` locally: it writes all your secrets in plai
 
 `AGENTS.md` tells agents (Claude Code, Codex, Cursor) how to work in this project; `CLAUDE.md` points to it. `.claude/settings.json` allows `task` and read-only git commands, asks before adding dependencies, and blocks direct `php`, `composer`, `bun`, `node` and `npm` calls.
 
-`task agent` starts Claude Code in its own container. Log in once with `/login`; the login is kept between sessions. The sandbox:
+`task agent` starts Claude Code in its own container. The first time, Claude asks whether you trust the folder and you log in with `/login`; both are kept between sessions. The sandbox:
 
 - sees only this project, not your home folder or the Docker socket;
 - cannot read `.secrets/`;

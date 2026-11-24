@@ -12,9 +12,10 @@ FROM php:8.5-cli-trixie
 RUN apt-get update && apt-get install -y --no-install-recommends git unzip rsync postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Extensions for Laravel on Postgres (redis is used when you opt in to Redis)
+# Extensions for Laravel on Postgres (redis is used when you opt in to Redis); pcov measures code
+# coverage for `task test -- --coverage` and only in this dev image, never in production
 COPY --from=ghcr.io/mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
-RUN install-php-extensions pdo_pgsql intl zip bcmath pcntl redis opcache
+RUN install-php-extensions pdo_pgsql intl zip bcmath pcntl redis opcache pcov
 
 # Pest's type coverage runs PHPStan inside the PHP process, and the CLI default of 128M is too little
 RUN echo "memory_limit=1G" > "$PHP_INI_DIR/conf.d/zz-memory.ini"

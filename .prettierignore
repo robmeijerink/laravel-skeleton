@@ -1,0 +1,11 @@
+# Files that belong to laravel-skeleton. The React and Vue starter kits format the whole repository
+# (`bun run check:fix`, part of `task check`); in the AI sandbox these files are read-only, and their
+# style is the template's, so the formatter leaves them alone.
+.devcontainer/
+.claude/
+docs/
+Taskfile.yaml
+Taskfile.local.yml
+AGENTS.md
+CLAUDE.md
+README.md

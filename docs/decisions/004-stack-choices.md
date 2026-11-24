@@ -21,5 +21,7 @@ The image (see `Dockerfile` and the README) takes all configuration from the env
 
 ## Development Environment Details
 * **`memory_limit=1G` in the dev image:** Pest's type coverage runs PHPStan inside the PHP process and the CLI default (128M) is exhausted.
+* **Vite polls for file changes** (`CHOKIDAR_USEPOLLING`, every 300 ms). Verified on macOS with Colima: a change made inside the container produced an HMR update, the same change made from the host produced none, so hot reload never fired for edits in your editor. The environment variable avoids patching each kit's Vite config.
+* **pcov in the dev image only**, for code coverage; production has no coverage driver.
 * **No Postgres port on the host:** a fixed `5432` clashes with every other project. The containers use `postgres:5432`. The app (8000), Vite (5173) and Mailpit (8025) are published on `127.0.0.1` only; change them per project if they clash.
 * **`composer qa`** (Rector, Pint, Larastan, Pest, type coverage) is the single definition of "checked"; `qa:ci` is the same as dry runs for Rector and Pint. Both disable Composer's 300s process timeout.

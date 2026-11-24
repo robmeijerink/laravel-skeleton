@@ -9,6 +9,10 @@ services:
     environment:
       # `php artisan serve` must listen on all interfaces inside the container
       SERVER_HOST: 0.0.0.0
+      # File events from the host don't reach the container on every setup (verified on macOS with
+      # Colima), so Vite's watcher polls for changes; without this, hot reload misses edits made in your editor
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
     volumes:
       - ../:/app
       # Composer and Bun caches are shared by all projects (like a local ~/.composer and ~/.bun)

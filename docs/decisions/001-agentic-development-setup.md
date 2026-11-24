@@ -13,6 +13,8 @@ This skeleton is set up so an agent works efficiently (few tokens) and the codeb
 * **Pest arch tests** (`tests/Unit/ArchTest.php`) fail the build when code breaks a structural rule.
 * **Type coverage with a minimum of 100** makes untyped code fail the build. The minimum only goes up. Rector's type-declaration sets add missing types to the installer's own code during `init`; what it cannot type gets a line-level `// @pest-ignore-type` marker, so the minimum stays 100 for new code (see [003](003-template-and-init.md)).
 * **Rector** (`rector.php`, kept to the stable core: dead code, code quality, type declarations, PHP sets) keeps code modern without a human sweep.
+* **Frontend checks** come from the project itself: where the starter kit defines `check:fix`/`check` (Oxlint and Oxfmt through Vite+) and `types:check` (`tsc`, `vue-tsc`), `init` adds them to `composer qa`; the SPA stubs get a `types:check` of their own. Blade and Livewire have no TypeScript and get none. Without them a TypeScript error would pass `task check` and CI, because `bun run build` does not typecheck.
+* **Code coverage** is measured (pcov in the dev image, `task test -- --coverage`), not enforced: a minimum is a per-project choice.
 * **Essentials** (`nunomaduro/essentials`) turns on stricter Laravel defaults: strict models, immutable dates, destructive commands blocked in production.
 * **Code the installer wrote** that violates max level is recorded once in `phpstan-baseline.neon`; new code gets no such allowance.
 

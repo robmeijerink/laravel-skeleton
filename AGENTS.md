@@ -4,8 +4,8 @@ Laravel project on PostgreSQL. All tooling runs in Docker via Task; PHP, Compose
 
 ## Commands
 
-- `task check`: Rector and Pint (they edit files), Larastan (max level), Pest and type coverage (`composer qa`). Run it after every change; work is done only when it passes.
-- `task test -- --filter=Name`: Pest, for the red/green loop on one test.
+- `task check`: Rector, Pint and the frontend formatter (they edit files), the TypeScript check, Larastan (max level), Pest and type coverage (`composer qa`). Run it after every change; work is done only when it passes.
+- `task test -- --filter=Name`: Pest, for the red/green loop on one test. Add `--coverage` for a coverage report.
 - `task artisan -- <args>`, `task composer -- <args>`, `task bun -- <args>`: any other command, e.g. `task artisan -- make:model Post -m`.
 - Don't run `task dev` (never exits) or a bare `task` (interactive menu).
 - Never run `php`, `composer`, `bun` or `node` directly: they don't exist on the host, and in the sandbox `task` is the only supported entry point.

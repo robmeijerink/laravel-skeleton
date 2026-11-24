@@ -83,7 +83,7 @@ The React, Vue and Livewire kits are maintained by Laravel and installed in thei
 3. Connects the app to the PostgreSQL container and creates a separate `testing` database configuration with fake values in `.env.testing`.
 4. Installs the quality tools (Larastan, Rector, the Pest plugins) and [Essentials](https://github.com/nunomaduro/essentials), and adds the Composer scripts that `task check` uses.
 5. Installs the add-ons you chose and removes the services you did not choose from the Docker setup.
-6. Configures Vite to work inside the container.
+6. Configures Vite to work inside the container, and makes the Inertia kits' tests pass while `task dev` is running.
 7. Moves `.env` to `.secrets/.env` and puts a link in its place, so the AI sandbox cannot read it.
 8. Lets Rector and Pint tidy the installer's code. Code that still fails the strictest checks is recorded once in a baseline, so your own code starts with no exceptions.
 9. Removes everything that was only needed for setup: the `.skeleton/` folder, the `init` task, the template's smoke test, this README and the MIT license.
@@ -104,7 +104,7 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 
 ### Code quality
 
-`task check` runs these tools in one go. It fixes what it can (Rector and Pint change files) and fails on the rest.
+`task check` runs these tools in one go. It fixes what it can (Rector, Pint and the frontend formatter change files) and fails on the rest.
 
 | Tool | Setting |
 | :--- | :--- |
@@ -114,6 +114,9 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 | [Larastan](https://github.com/larastan/larastan) | PHPStan for Laravel at **level max**, the strictest level |
 | [Rector](https://getrector.com) | Removes dead code, simplifies code, adds missing types and applies PHP upgrades |
 | [Pint](https://laravel.com/docs/pint) | Code formatting with the Laravel preset |
+| Frontend lint and format | With `--react` and `--vue`: the kit's own [Oxlint](https://oxc.rs) and Oxfmt checks through Vite+ (`bun run check`) |
+| TypeScript | With `--react`, `--vue`, `--spa-react` and `--spa-vue`: a full typecheck with `tsc` or `vue-tsc` (`bun run types:check`) |
+| Code coverage | pcov in the development image: `task test -- --coverage` shows the coverage. No minimum is enforced. |
 | [Essentials](https://github.com/nunomaduro/essentials) | Stricter Laravel defaults: strict models, automatic eager loading, immutable dates, no real HTTP requests or sleeps in tests, and in production HTTPS URLs and no destructive Artisan commands |
 
 ### Working with AI agents
@@ -132,6 +135,7 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 | `.devcontainer/` | The Docker setup: the development image, Docker Compose and a VS Code Dev Container configuration |
 | `Dockerfile` | Production image on [FrankenPHP](https://frankenphp.dev): non-root, with a health check |
 | `Dockerfile.dev-agent` | The image for the AI sandbox |
+| `.prettierignore` | Keeps the starter kits' frontend formatter away from the template's own files |
 | `.github/workflows/` | CI for the project and automatic merging of Dependabot updates |
 | `.github/dependabot.yml` | Weekly updates for PHP, Composer and Bun packages and GitHub Actions |
 | `docs/decisions/` | Architecture decision records that explain the choices in this template |
@@ -145,7 +149,7 @@ Run `task` without arguments for a searchable menu (needs fzf). Arguments for th
 | `task init` | Create the Laravel app (only in the template; removed afterwards) |
 | `task dev` | Start Laravel, a queue worker, the log viewer and Vite with hot reloading on http://localhost:8000 |
 | `task down` | Stop the containers |
-| `task check` | Run Rector, Pint, Larastan, the tests and the type-coverage check. Run this before every commit. |
+| `task check` | Run Rector, Pint, the frontend checks, Larastan, the tests and the type-coverage check. Run this before every commit. |
 | `task test` | Run the tests, for example `task test -- --filter=UserTest` |
 | `task fmt` | Format the code with Pint |
 | `task artisan -- <command>` | Run Artisan, for example `task artisan -- make:model Post -m` |
@@ -162,8 +166,9 @@ The quality checks are also Composer scripts, so `task check`, the sandbox and C
 | Script | What it runs |
 | :--- | :--- |
 | `composer qa` | Everything `task check` runs |
-| `composer qa:ci` | The same, but Rector and Pint only report instead of changing files (used by CI) |
+| `composer qa:ci` | The same, but Rector, Pint and the frontend formatter only report instead of changing files (used by CI) |
 | `composer rector`, `fix`, `stan`, `test:unit`, `test:types` | Rector, Pint, Larastan, Pest and the type-coverage check on their own |
+| `composer test:coverage` | The tests with a code-coverage report |
 
 ## Development environment
 
@@ -181,6 +186,8 @@ PostgreSQL is not published on your machine, so it never clashes with the databa
 
 The Composer and Bun download caches are shared between all projects in the Docker volumes `php_composer` and `bun_cache`. Remove them with `docker volume rm php_composer bun_cache` to start fresh.
 
+**Hot reload.** Vite checks for changed files every 300 ms instead of waiting for file events, because file events from your editor do not always reach the container (they do not on macOS with Colima). Change the interval with `CHOKIDAR_INTERVAL` in `.devcontainer/docker-compose.yml`.
+
 **VS Code.** Open the folder and choose *Reopen in Container* to work inside the app container, with the Intelephense and Tailwind CSS extensions installed.
 
 **Linux.** The app container runs as root, so files it creates (for example with `task artisan -- make:model`) are owned by root. On macOS this does not apply.
@@ -195,7 +202,7 @@ Never run `php artisan config:cache` locally: it writes all your secrets in plai
 
 ## Working with AI agents
 
-`task agent` starts Claude Code in its own container. Log in once with `/login`; the login is kept between sessions and rebuilds.
+`task agent` starts Claude Code in its own container. The first time, Claude asks whether you trust the folder and you log in with `/login`; both are kept between sessions and rebuilds.
 
 The sandbox:
 

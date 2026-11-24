@@ -78,6 +78,14 @@ setenv .env.testing BCRYPT_ROUNDS 4
 sed -i '/name="DB_CONNECTION"/d;/name="DB_DATABASE"/d;/name="DB_URL"/d' phpunit.xml
 sed -i 's|^\( *\)<env name="APP_ENV" value="testing"/>|&\n\1<env name="DB_CONNECTION" value="pgsql"/>\n\1<env name="DB_DATABASE" value="testing"/>|' phpunit.xml
 grep -q 'name="DB_DATABASE" value="testing"' phpunit.xml || { echo "phpunit.xml: could not set the testing database" >&2; exit 1; }
+# Inertia kits: while `task dev` runs (public/hot exists), Inertia renders server-side through the Vite
+# dev server. In tests that is a real HTTP request, which Essentials blocks, so every page would fail
+# with a 500. Tests render client-side only; the setting stays on everywhere else.
+if [ -f config/inertia.php ]; then
+  sed -i "s/^\(\s*\)'enabled' => true,/\1'enabled' => (bool) env('INERTIA_SSR_ENABLED', true),/" config/inertia.php
+  grep -q "INERTIA_SSR_ENABLED" config/inertia.php || { echo "config/inertia.php: could not make SSR configurable for the tests" >&2; exit 1; }
+  sed -i 's|^\( *\)<env name="APP_ENV" value="testing"/>|&\n\1<env name="INERTIA_SSR_ENABLED" value="false"/>|' phpunit.xml
+fi
 
 # ---- 7. Quality tooling: Larastan (max), Pest plugins, Rector, Essentials ---------------------
 composer require --dev --no-interaction --quiet \
@@ -138,8 +146,14 @@ php -r '
   $json["scripts"]["test:types"] = "pest --type-coverage --min=100 --compact";
   // Composer kills a script after 300s; a cold PHPStan cache on a slow machine can need longer
   $json["scripts"]["rector"] = "rector --no-progress-bar";
-  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@rector", "@fix", "@stan", "@test:unit", "@test:types"];
-  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "rector --dry-run --no-progress-bar", "pint --test", "@stan", "@test:unit", "@test:types"];
+  $json["scripts"]["test:coverage"] = "pest --coverage --compact";
+  // Frontend: reuse the scripts the starter kit (or SPA stub) defines; Blade and Livewire have none
+  $npm = is_file("package.json") ? (json_decode(file_get_contents("package.json"), true)["scripts"] ?? []) : [];
+  $front = $frontCi = [];
+  if (isset($npm["check:fix"], $npm["check"])) { $front[] = "bun run check:fix"; $frontCi[] = "bun run check"; }
+  if (isset($npm["types:check"])) { $front[] = $frontCi[] = "bun run types:check"; }
+  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@rector", "@fix", ...$front, "@stan", "@test:unit", "@test:types"];
+  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "rector --dry-run --no-progress-bar", "pint --test", ...$frontCi, "@stan", "@test:unit", "@test:types"];
   file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
 '
 
