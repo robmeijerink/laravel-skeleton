@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # The same image, database and commands as `task check`, so CI and local runs can't drift apart
       - name: Create Cache Volumes
@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # Catches problems that only show in the production image (extensions, the frontend build)
       - name: Build Image

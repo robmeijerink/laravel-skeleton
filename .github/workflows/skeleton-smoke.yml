@@ -28,7 +28,7 @@ jobs:
           - --spa-react
           - --spa-vue
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: arduino/setup-task@v2
         with:
           version: 3.x
