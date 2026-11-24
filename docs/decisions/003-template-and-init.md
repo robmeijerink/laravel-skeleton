@@ -14,7 +14,7 @@ The repository contains **no Laravel code**: only the container setup, the agent
 * **Boost is not installed:** it writes its own `AGENTS.md`/MCP config and expects PHP on the host; `AGENTS.md` here is the source of truth.
 
 ## Keeping the Template Honest
-Nothing is pinned except the PHP minor ([004](004-stack-choices.md)), so the template can break without a commit (an installer flag is renamed, a kit changes its Vite config). `.github/workflows/skeleton-smoke.yml` runs `task init` for every variant and then `task check` and a production build, weekly and on pull requests. A failing run is the signal that `.skeleton/` needs a fix; `init` fails loudly (for example when it cannot patch the Vite config or `phpunit.xml`) instead of producing a half-configured project.
+Nothing is pinned except the PHP minor ([004](004-stack-choices.md)), so the template can break without a commit (an installer flag is renamed, a kit changes its Vite config). `.github/workflows/skeleton-smoke.yml` runs `task init` for every variant and then `task check`, the project's CI command (`composer qa:ci`) and a production build, on every push to `main`, on every pull request and weekly. A failing run is the signal that `.skeleton/` needs a fix; `init` fails loudly (for example when it cannot patch the Vite config or `phpunit.xml`) instead of producing a half-configured project.
 
 ## Upstream Quirks `init` Works Around
 Found while building the skeleton (2026-11); each one is a place the smoke test will show first if upstream changes:
