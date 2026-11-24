@@ -108,7 +108,7 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 
 | Tool | Setting |
 | :--- | :--- |
-| [Pun](https://punphp.com) | One tool, configured in `pun.toml`, that formats like Pint (Laravel preset), lints with Rector's dead-code, code-quality, type-declaration and PHP-upgrade sets, and analyses like PHPStan at **level max**, the strictest level, with Larastan's and Carbon's checks. It also installs the Composer packages. See [the decision record](docs/decisions/005-pun.md) for what it does not do yet. |
+| [Pun](https://punphp.com) | One tool, configured in `pun.toml`, that formats like Pint (Laravel preset), lints with Rector's dead-code, code-quality, type-declaration and PHP-upgrade sets, and analyses like PHPStan at **level max**, the strictest level, with Larastan's and Carbon's checks. It also installs the Composer packages. |
 | [Pest](https://pestphp.com) | Test framework, with the arch and type-coverage plugins. Tests run in parallel, each process with its own copy of the testing database. |
 | Pest arch tests | `tests/Unit/ArchTest.php`, with the `php` and `security` presets. Add your own rules there. |
 | Pest type coverage | Minimum **100%**: every parameter, return value and property must have a type |
@@ -308,7 +308,7 @@ The reasoning behind the setup is in [`docs/decisions/`](docs/decisions/):
 - [Agent sandbox](docs/decisions/002-agent-sandbox.md): what the sandbox protects against, and what it does not
 - [Template and `task init`](docs/decisions/003-template-and-init.md): why the template contains no Laravel code, and which upstream quirks `init` works around
 - [Stack choices](docs/decisions/004-stack-choices.md): PostgreSQL, Bun, FrankenPHP, and how versions stay current
-- [Pun](docs/decisions/005-pun.md): why Pun replaces Pint, Rector, Larastan and most of Composer, and what it does not do yet
+- [Pun](docs/decisions/005-pun.md): why Pun replaces Pint, Rector, Larastan and most of Composer
 
 ## License
 
