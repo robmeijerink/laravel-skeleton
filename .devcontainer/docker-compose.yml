@@ -13,6 +13,11 @@ services:
       # Colima), so Vite's watcher polls for changes; without this, hot reload misses edits made in your editor
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "300"
+      # laravel/pao gives AI agents compact output from Pest, PHPStan, Rector and Artisan. It recognises an
+      # agent by these variables; without a value Compose passes them on from the shell that runs `task`.
+      CLAUDECODE:
+      AI_AGENT:
+      CURSOR_AGENT:
     volumes:
       - ../:/app
       # Composer and Bun caches are shared by all projects (like a local ~/.composer and ~/.bun)

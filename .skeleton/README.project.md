@@ -56,8 +56,10 @@ Mailpit (http://localhost:8025) and Redis (`localhost:6379`) are there too if yo
 2. **Pint** formats the code with the Laravel preset.
 3. **Frontend checks**: Oxlint and Oxfmt (`bun run check:fix`) and, with TypeScript, the typecheck (`bun run types:check`).
 4. **Larastan** analyses the code at level max, the strictest level (`phpstan.neon`). If the starter kit's code did not pass, it is listed in `phpstan-baseline.neon`; keep that list from growing.
-5. **Pest** runs the tests, including the architecture rules in `tests/Unit/ArchTest.php`, and measures code coverage. The minimum is 100% (`test:coverage` in `composer.json`).
+5. **Pest** runs the tests in parallel, including the architecture rules in `tests/Unit/ArchTest.php`, and measures code coverage. The minimum is 100% (`test:coverage` in `composer.json`).
 6. **Pest type coverage** checks that every parameter, return value and property has a type. The minimum is 100% (`test:types` in `composer.json`).
+
+[PAO](https://github.com/laravel/pao) makes the output compact when an AI agent runs these tools, and leaves it unchanged for you.
 
 Rector, Pint and the frontend formatter change files; the other steps only report. CI runs the same steps but changes nothing, so it fails if any of them would still change something. `.prettierignore` keeps the frontend formatter away from the files that came with the template.
 
@@ -75,6 +77,20 @@ If the starter kit contained code that could not be typed automatically, that li
 - In production, generated URLs use HTTPS and destructive Artisan commands (such as `migrate:fresh`) are blocked.
 
 To change any of these, publish the config with `task artisan -- vendor:publish --tag=essentials-config` and edit `config/essentials.php`.
+
+## Typed data and generated TypeScript types
+
+Projects with a TypeScript frontend (React, Vue and the SPAs) include [laravel-data](https://spatie.be/docs/laravel-data) and [TypeScript Transformer](https://github.com/spatie/laravel-typescript-transformer). Mark a data object or enum in `app/` with `#[TypeScript]`:
+
+```php
+#[TypeScript]
+final class UserData extends Data
+{
+    public function __construct(public int $id, public string $name) {}
+}
+```
+
+`task check` (or `composer types:generate`) then writes its type to `resources/js/generated/generated.d.ts`, where it is available as `App.Data.UserData`. Commit the file: CI regenerates it and fails if it is out of date, so the frontend can never use a type that no longer matches the backend.
 
 ## Configuration and secrets
 

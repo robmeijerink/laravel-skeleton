@@ -20,3 +20,6 @@ CLAUDE.local.md
 
 # Machine-specific tasks (created by `task agent` if missing)
 Taskfile.local.yml
+
+# Written by `typescript:transform` next to the generated types; only needed for its --watch mode
+/resources/js/generated/typescript-transformer-manifest.json

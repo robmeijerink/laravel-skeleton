@@ -108,16 +108,24 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 
 | Tool | Setting |
 | :--- | :--- |
-| [Pest](https://pestphp.com) | Test framework, with the arch, type-coverage and PHPStan plugins |
+| [Pest](https://pestphp.com) | Test framework, with the arch, type-coverage and PHPStan plugins. Tests run in parallel, each process with its own copy of the testing database. |
 | Pest arch tests | `tests/Unit/ArchTest.php`, with the `php` and `security` presets. Add your own rules there. |
 | Pest type coverage | Minimum **100%**: every parameter, return value and property must have a type |
-| [Larastan](https://github.com/larastan/larastan) | PHPStan for Laravel at **level max**, the strictest level |
+| [Larastan](https://github.com/larastan/larastan) | PHPStan for Laravel at **level max**, the strictest level, with the Carbon extension |
 | [Rector](https://getrector.com) | Removes dead code, simplifies code, adds missing types and applies PHP upgrades |
 | [Pint](https://laravel.com/docs/pint) | Code formatting with the Laravel preset |
+| [PAO](https://github.com/laravel/pao) | When an AI agent runs the tests, PHPStan, Rector or Artisan, the output becomes compact JSON instead of progress bars and colours, which saves the agent tokens. Unchanged when you run them yourself. |
 | Frontend lint and format | [Oxlint](https://oxc.rs) and Oxfmt for every stack with JavaScript: the React and Vue kits run them through Vite+, the other stacks directly (style in `.oxfmtrc.json`: single quotes, 4 spaces) |
 | TypeScript | With `--react`, `--vue`, `--spa-react` and `--spa-vue`: a full typecheck with `tsc` or `vue-tsc` (`bun run types:check`) |
 | Code coverage | Minimum **100%**, measured with pcov: every line of your code needs a test. Lines of the starter kit that its own tests don't reach are excluded once, with PHPUnit's `@codeCoverageIgnore` markers. |
 | [Essentials](https://github.com/nunomaduro/essentials) | Stricter Laravel defaults: strict models, automatic eager loading, immutable dates, no real HTTP requests or sleeps in tests, and in production HTTPS URLs and no destructive Artisan commands |
+
+### Typed data (React, Vue and the SPAs)
+
+| | |
+| :--- | :--- |
+| [laravel-data](https://spatie.be/docs/laravel-data) | Typed data objects for requests, responses and Inertia props |
+| [TypeScript Transformer](https://github.com/spatie/laravel-typescript-transformer) | Turns every class in `app/` marked `#[TypeScript]` (data objects, enums) into a TypeScript type in `resources/js/generated/generated.d.ts`. `task check` regenerates the file; CI fails when the committed file is out of date. |
 
 ### Working with AI agents
 
@@ -169,6 +177,7 @@ The quality checks are also Composer scripts, so `task check`, the sandbox and C
 | `composer qa:ci` | The same, but Rector, Pint and the frontend formatter only report instead of changing files (used by CI) |
 | `composer rector`, `fix`, `stan`, `test:unit`, `test:types` | Rector, Pint, Larastan, the tests without coverage, and the type-coverage check on their own |
 | `composer test:coverage` | The tests with coverage; fails below 100% |
+| `composer types:generate` | Regenerate the TypeScript types from PHP (React, Vue and the SPAs) |
 
 ## Development environment
 

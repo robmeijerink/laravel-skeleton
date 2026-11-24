@@ -14,6 +14,7 @@ Laravel project on PostgreSQL. All tooling runs in Docker via Task; PHP, Compose
 
 - Standard Laravel layout. Business logic goes in `app/` classes (actions or services), not in controllers, routes or models.
 - Frontend: Vite with Bun (`bun`, never `npm`/`pnpm`/`yarn`; the lockfile is `bun.lock`).
+- Data objects: use laravel-data where the stack has TypeScript; mark them (and enums the frontend needs) `#[TypeScript]`, run `task check`, and use the generated type from `resources/js/generated/generated.d.ts` instead of writing it by hand.
 - Tests are Pest, in `tests/`. They run on the separate `testing` database; never point them at the dev database.
 - Architecture decisions live in `docs/decisions/`; read the relevant one before changing that area, and add one for each new decision.
 

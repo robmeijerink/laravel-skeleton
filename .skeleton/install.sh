@@ -56,6 +56,8 @@ composer install --no-interaction --no-progress --quiet
 [ -f package.json ] && bun install --no-progress
 # Oxlint and Oxfmt where the starter kit doesn't bring its own frontend checks
 bash .skeleton/frontend-tools.sh
+# laravel-data with generated TypeScript types, for the stacks with a TypeScript frontend
+case "$STACK" in react|vue|spa-react|spa-vue) bash .skeleton/typescript-types.sh ;; esac
 # Add-ons
 [ "$MAILPIT" = 1 ] && bash .skeleton/addons/mailpit.sh
 [ "$REDIS" = 1 ] && bash .skeleton/addons/redis.sh
@@ -92,7 +94,7 @@ fi
 # ---- 7. Quality tooling: Larastan (max), Pest plugins, Rector, Essentials ---------------------
 composer require --dev --no-interaction --quiet \
   larastan/larastan pestphp/pest-plugin-arch pestphp/pest-plugin-type-coverage pestphp/pest-plugin-phpstan \
-  rector/rector
+  rector/rector laravel/pao
 # Stricter Laravel defaults (strict models, immutable dates, no destructive commands in production, ...)
 composer require nunomaduro/essentials --no-interaction --quiet
 cat > rector.php <<'RECTOR'
@@ -115,6 +117,7 @@ else
   cat > phpstan.neon <<'NEON'
 includes:
     - vendor/larastan/larastan/extension.neon
+    - vendor/nesbot/carbon/extension.neon
 
 parameters:
     level: max
@@ -144,19 +147,27 @@ php -r '
   $json = json_decode(file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
   $json["scripts"]["fix"] = "pint --quiet";
   $json["scripts"]["stan"] = "phpstan analyse --no-progress --memory-limit=1G";
-  $json["scripts"]["test:unit"] = "pest --compact";
+  // Tests run in parallel; Laravel gives every process its own copy of the testing database
+  $json["scripts"]["test:unit"] = "pest --parallel --compact";
   $json["scripts"]["test:types"] = "pest --type-coverage --min=100 --compact";
   $json["scripts"]["rector"] = "rector --no-progress-bar";
   // The tests run once, with coverage (pcov), and fail below the minimum
-  $json["scripts"]["test:coverage"] = "pest --coverage --min=100 --compact";
+  $json["scripts"]["test:coverage"] = "pest --parallel --coverage --min=100 --compact";
+  // Generated TypeScript types (laravel-data): `qa` regenerates them before the formatter runs; CI
+  // regenerates and formats them, then fails if the committed file is out of date
+  $ts = is_file("app/Providers/TypeScriptTransformerServiceProvider.php");
+  if ($ts) {
+    $json["scripts"]["types:generate"] = "@php artisan typescript:transform --quiet";
+    $json["scripts"]["types:verify"] = ["@types:generate", "bun run check:fix > /dev/null", "git diff --exit-code -- resources/js/generated/generated.d.ts"];
+  }
   // Frontend: reuse the scripts the starter kit (or SPA stub) defines; Blade and Livewire have none
   $npm = is_file("package.json") ? (json_decode(file_get_contents("package.json"), true)["scripts"] ?? []) : [];
   $front = $frontCi = [];
   if (isset($npm["check:fix"], $npm["check"])) { $front[] = "bun run check:fix"; $frontCi[] = "bun run check"; }
   if (isset($npm["types:check"])) { $front[] = $frontCi[] = "bun run types:check"; }
   // Composer kills a script after 300s; a cold PHPStan cache on a slow machine can need longer
-  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@rector", "@fix", ...$front, "@stan", "@test:coverage", "@test:types"];
-  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "rector --dry-run --no-progress-bar", "pint --test", ...$frontCi, "@stan", "@test:coverage", "@test:types"];
+  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@rector", "@fix", ...($ts ? ["@types:generate"] : []), ...$front, "@stan", "@test:coverage", "@test:types"];
+  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "rector --dry-run --no-progress-bar", "pint --test", ...$frontCi, ...($ts ? ["@types:verify"] : []), "@stan", "@test:coverage", "@test:types"];
   file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
 '
 
@@ -216,7 +227,7 @@ fi
 if [ -z "$ctotal" ]; then
   echo "NOTE: could not measure code coverage (do the tests pass?); the minimum stays 100." >&2
 elif [ "${ctotal%.*}" -lt 100 ]; then
-  sed -i "s/pest --coverage --min=100/pest --coverage --min=${ctotal%.*}/" composer.json
+  sed -i "s/--coverage --min=100/--coverage --min=${ctotal%.*}/" composer.json
   echo "NOTE: code coverage is still ${ctotal}% after marking; the minimum starts at ${ctotal%.*} instead of 100." >&2
 fi
 
