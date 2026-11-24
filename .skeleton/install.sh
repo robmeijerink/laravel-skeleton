@@ -235,6 +235,8 @@ sed -i 's/laravel-skeleton/'"$NAME"'/g' .devcontainer/devcontainer.json
 drop_block Taskfile.yaml skeleton
 # The project's CI lives in the template as .skeleton/ci.yml: in the template itself it would fail (no app yet)
 mkdir -p .github/workflows && mv .skeleton/ci.yml .github/workflows/ci.yml
+# Same for Dependabot: Composer and Bun updates only make sense once there is an app
+mv .skeleton/dependabot.yml .github/dependabot.yml
 cp .skeleton/README.project.md README.md
 sed -i "s/__NAME__/$NAME/g" README.md
 # The template's MIT LICENSE is not the project's: pick your own (the Laravel app itself is MIT in composer.json)

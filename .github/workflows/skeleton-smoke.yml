@@ -49,6 +49,14 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - run: task init -- ${{ matrix.flags }} --name=smoke
       - run: task check
-      # The exact command of the generated project's CI (.github/workflows/ci.yml)
-      - run: docker compose -f .devcontainer/docker-compose.yml run --rm -T app composer qa:ci
+      # The same steps as the generated project's CI (.skeleton/ci.yml), in a fresh Compose project with
+      # empty volumes, like on a CI runner. Keep in sync with that file.
+      - name: Project CI
+        run: |
+          docker compose -f .devcontainer/docker-compose.yml -p smoke-ci run --rm -T app sh -euc '
+            git config --global --add safe.directory "$PWD"
+            composer install --no-interaction --no-progress
+            if [ -f package.json ]; then bun install --frozen-lockfile && bun run build; fi
+            composer qa:ci
+          '
       - run: docker build .
