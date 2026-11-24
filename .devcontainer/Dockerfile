@@ -6,7 +6,7 @@
 # Dependabot proposes the bump (it can't see through an ARG, hence the literal tag); CI shows whether
 # it works. Everything else (Composer, Bun, the installer) is unpinned and follows the latest
 # release on `task build:dev`.
-FROM php:8.5-cli-trixie
+FROM php:8.6-cli-trixie
 
 # git/unzip: Composer; rsync: `task init`; postgresql-client: `artisan db` and dumps
 RUN apt-get update && apt-get install -y --no-install-recommends git unzip rsync postgresql-client \
