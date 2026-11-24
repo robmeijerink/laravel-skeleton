@@ -35,7 +35,7 @@ rm -rf "$TMP"
 
 # ---- 3. Own stubs for the stacks without a starter kit ----------------------------------------
 if [ -d ".skeleton/stubs/$STACK" ]; then
-  composer install --no-interaction --no-progress --quiet
+  pun install
   bash ".skeleton/stubs/$STACK/install.sh"
 fi
 
@@ -52,7 +52,7 @@ for f in .env .env.example; do
 done
 
 # ---- 5. Dependencies in the repo (node_modules was left behind in the temporary folder) ------
-composer install --no-interaction --no-progress --quiet
+pun install
 [ -f package.json ] && bun install --no-progress
 # Oxlint and Oxfmt where the starter kit doesn't bring its own frontend checks
 bash .skeleton/frontend-tools.sh
@@ -91,44 +91,43 @@ if [ -f config/inertia.php ]; then
   sed -i 's|^\( *\)<env name="APP_ENV" value="testing"/>|&\n\1<env name="INERTIA_SSR_ENABLED" value="false"/>|' phpunit.xml
 fi
 
-# ---- 7. Quality tooling: Larastan (max), Pest plugins, Rector, Essentials ---------------------
-composer require --dev --no-interaction --quiet \
-  larastan/larastan pestphp/pest-plugin-arch pestphp/pest-plugin-type-coverage pestphp/pest-plugin-phpstan \
-  rector/rector laravel/pao
+# ---- 7. Quality tooling: Pun, Pest plugins, Essentials ---------------------------------------
+# Pun formats (Pint's rules), lints (Rector's sets) and analyses (PHPStan level max with Larastan's
+# checks), so Pint, Rector and Larastan go, with their configs (docs/decisions/005-pun.md). The project
+# locks its own Pun, which Dependabot updates; the image's Pun only installs a fresh clone.
+for pkg in laravel/pint larastan/larastan rector/rector; do
+  if php -r 'exit(isset(json_decode(file_get_contents("composer.json"), true)["require-dev"][$argv[1]]) ? 0 : 1);' "$pkg"; then
+    pun remove "$pkg"
+  fi
+done
+rm -f pint.json phpstan.neon phpstan.neon.dist rector.php
+pun require --dev shipfastlabs/pun pestphp/pest-plugin-arch pestphp/pest-plugin-type-coverage laravel/pao
 # Stricter Laravel defaults (strict models, immutable dates, no destructive commands in production, ...)
-composer require nunomaduro/essentials --no-interaction --quiet
-cat > rector.php <<'RECTOR'
-<?php
+pun require nunomaduro/essentials
+cat > pun.toml <<'TOML'
+# Pun: format, lint and analyse in one tool (https://punphp.com/docs/configuration/pun-toml).
+# `task check` runs `pun check --fix`; CI runs `pun check`, which changes nothing.
 
-declare(strict_types=1);
+[extensions]
+laravel = "on"
+pest = "on"
+carbon = "on"
 
-use Rector\Config\RectorConfig;
+[format]
+# Pint's default rules
+preset = "laravel"
 
-// Kept to the stable, documented core of Rector so it keeps working across major versions
-return RectorConfig::configure()
-    ->withPaths([__DIR__.'/app', __DIR__.'/config', __DIR__.'/database', __DIR__.'/routes', __DIR__.'/tests'])
-    ->withPhpSets()
-    ->withPreparedSets(deadCode: true, codeQuality: true, typeDeclarations: true);
-RECTOR
-# The kits bring their own phpstan.neon (level 7); the skeleton raises it to max. Without a kit, write one.
-if [ -f phpstan.neon ]; then
-  sed -i 's/^\( *level:\) .*/\1 max/' phpstan.neon
-else
-  cat > phpstan.neon <<'NEON'
-includes:
-    - vendor/larastan/larastan/extension.neon
-    - vendor/nesbot/carbon/extension.neon
+[lint]
+# Exactly the Rector sets this template used: dead code, code quality, type declarations, and the
+# PHP upgrades up to the PHP version in composer.json
+sets = ["rector/dead-code", "rector/code-quality", "rector/type-declaration", "rector/php-sets"]
+exclude = ["bootstrap", "public", "resources", "storage"]
 
-parameters:
-    level: max
-    paths:
-        - app
-        - config
-        - database
-        - routes
-NEON
-fi
-grep -q 'level: max' phpstan.neon || { echo "phpstan.neon: could not set level max" >&2; exit 1; }
+[analyse]
+# Exactly PHPStan's level max, with Larastan's rules through the laravel extension
+preset = "phpstan/level_max"
+paths = ["app", "config", "database", "routes"]
+TOML
 rm -f pnpm-workspace.yaml
 mkdir -p tests/Unit
 cat > tests/Unit/ArchTest.php <<'PHP'
@@ -145,12 +144,16 @@ PHP
 php -r '
   $file = "composer.json";
   $json = json_decode(file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
-  $json["scripts"]["fix"] = "pint --quiet";
-  $json["scripts"]["stan"] = "phpstan analyse --no-progress --memory-limit=1G";
+  // Scripts of the installer that call the tools Pun replaces
+  foreach ($json["scripts"] ?? [] as $name => $cmd) {
+    if (preg_match("/\\b(pint|phpstan|rector)\\b/", implode(" ", (array) $cmd))) unset($json["scripts"][$name]);
+  }
+  // Format and lint fixes, then analysis; `pun:ci` only reports
+  $json["scripts"]["pun"] = "pun check --fix";
+  $json["scripts"]["pun:ci"] = "pun check";
   // Tests run in parallel; Laravel gives every process its own copy of the testing database
   $json["scripts"]["test:unit"] = "pest --parallel --compact";
   $json["scripts"]["test:types"] = "pest --type-coverage --min=100 --compact";
-  $json["scripts"]["rector"] = "rector --no-progress-bar";
   // The tests run once, with coverage (pcov), and fail below the minimum
   $json["scripts"]["test:coverage"] = "pest --parallel --coverage --min=100 --compact";
   // Generated TypeScript types (laravel-data): `qa` regenerates them before the formatter runs; CI
@@ -165,9 +168,9 @@ php -r '
   $front = $frontCi = [];
   if (isset($npm["check:fix"], $npm["check"])) { $front[] = "bun run check:fix"; $frontCi[] = "bun run check"; }
   if (isset($npm["types:check"])) { $front[] = $frontCi[] = "bun run types:check"; }
-  // Composer kills a script after 300s; a cold PHPStan cache on a slow machine can need longer
-  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@rector", "@fix", ...($ts ? ["@types:generate"] : []), ...$front, "@stan", "@test:coverage", "@test:types"];
-  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "rector --dry-run --no-progress-bar", "pint --test", ...$frontCi, ...($ts ? ["@types:verify"] : []), "@stan", "@test:coverage", "@test:types"];
+  // Composer kills a script after 300s; type coverage on a cold PHPStan cache on a slow machine can need longer
+  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@pun", ...($ts ? ["@types:generate"] : []), ...$front, "@test:coverage", "@test:types"];
+  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "@pun:ci", ...$frontCi, ...($ts ? ["@types:verify"] : []), "@test:coverage", "@test:types"];
   file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
 '
 
@@ -181,17 +184,17 @@ mv .env .secrets/.env
 ln -s .secrets/.env .env
 
 # ---- 10. Format, baseline for code the installer wrote, clean up ------------------------------
-# Bring the installer's own code up to the house rules: Rector adds missing types, Pint formats
-vendor/bin/rector --no-progress-bar > /dev/null 2>&1 || true
-vendor/bin/pint --quiet || true
+# Bring the installer's own code up to the house rules: Pun's lint adds missing types, its format formats
+vendor/bin/pun check --fix > /dev/null 2>&1 || true
 [ -f package.json ] && { bun run check:fix > /dev/null 2>&1 || true; }
-vendor/bin/phpstan analyse --no-progress --memory-limit=1G --generate-baseline > /dev/null 2>&1 || true
-if [ -s phpstan-baseline.neon ] && grep -q 'message' phpstan-baseline.neon; then
-  sed -i 's|^includes:|&\n    - phpstan-baseline.neon|' phpstan.neon
-else
-  rm -f phpstan-baseline.neon
+vendor/bin/pun analyse --generate-baseline pun-baseline.toml > /dev/null 2>&1 || true
+if [ -s pun-baseline.toml ]; then
+  sed -i 's|^paths = \["app", "config", "database", "routes"\]$|&\nbaseline = "pun-baseline.toml"|' pun.toml
+  grep -q '^baseline = ' pun.toml || { echo "pun.toml: could not add the baseline" >&2; exit 1; }
 fi
-# Type coverage must be 100. Whatever the installer's code still lacks after Rector gets a line-level
+# What Pun's lint reports but cannot fix in the installer's code fails `task check`; say so now
+vendor/bin/pun check > /dev/null 2>&1 || { echo "NOTE: pun check still fails on the installer's code:" >&2; vendor/bin/pun check --concise >&2 || true; }
+# Type coverage must be 100. Whatever the installer's code still lacks after Pun's lint gets a line-level
 # `@pest-ignore-type` marker (listed below), so the minimum stays 100 for everything written afterwards.
 # If that does not get to 100 either, start at the measured value and say so instead of shipping a red
 # first `task check`; the minimum only goes up.
@@ -201,9 +204,9 @@ coverage() {
 total() { grep -o 'Total: *[0-9.]*' | grep -o '[0-9.]*$' | head -1 || true; }
 report=$(coverage)
 if [ "$(echo "$report" | total | cut -d. -f1)" -lt 100 ]; then
-  echo "NOTE: untyped code from the installer that Rector could not fix, marked with @pest-ignore-type:" >&2
+  echo "NOTE: untyped code from the installer that Pun could not fix, marked with @pest-ignore-type:" >&2
   echo "$report" | php .skeleton/ignore-untyped.php > /dev/null
-  vendor/bin/pint --quiet || true
+  vendor/bin/pun format -q || true
   report=$(coverage)
 fi
 total=$(echo "$report" | total)
@@ -221,7 +224,7 @@ if [ -n "$ctotal" ] && [ "${ctotal%.*}" -lt 100 ]; then
   echo "NOTE: untested code from the installer, marked with @codeCoverageIgnore:" >&2
   vendor/bin/pest --coverage-clover /tmp/clover.xml > /dev/null 2>&1 || true
   php .skeleton/ignore-uncovered.php /tmp/clover.xml || true
-  vendor/bin/pint --quiet || true
+  vendor/bin/pun format -q || true
   ctotal=$(code_coverage | total)
 fi
 if [ -z "$ctotal" ]; then

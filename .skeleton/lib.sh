@@ -21,14 +21,16 @@ keep_block() { sed -i "/^ *# >>> $2\$/d;/^ *# <<< $2\$/d" "$1"; }
 drop_block() { sed -i "/^ *# >>> $2\$/,/^ *# <<< $2\$/d" "$1"; }
 
 # GitHub's download API answers 504 now and then; a retry is enough. Exported, so the add-on and
-# stub scripts get it too.
-composer() {
+# stub scripts get them too. Composer runs the Laravel installer; Pun installs the packages.
+retry() {
   local attempt
   for attempt in 1 2 3; do
-    command composer "$@" && return 0
-    echo "composer $1 failed (attempt $attempt of 3)" >&2
+    command "$@" && return 0
+    echo "$1 $2 failed (attempt $attempt of 3)" >&2
     sleep 5
   done
   return 1
 }
-export -f composer
+composer() { retry composer "$@"; }
+pun() { retry pun "$@"; }
+export -f retry composer pun

@@ -6,28 +6,29 @@ FROM dunglas/frankenphp:1-php8.5-trixie AS base
 RUN install-php-extensions pdo_pgsql intl zip bcmath pcntl redis opcache
 WORKDIR /app
 
-# Build stage: Composer and Bun live only here. The frontend build can call artisan (e.g. route
-# generators in the Vite plugins), so it runs after `composer install`.
+# Build stage: Pun and Bun live only here. The frontend build can call artisan (e.g. route
+# generators in the Vite plugins), so it runs after `pun install`.
 FROM base AS build
-RUN apt-get update && apt-get install -y --no-install-recommends git unzip && rm -rf /var/lib/apt/lists/*
-COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
-# See .devcontainer/Dockerfile: api.github.com is unreliable for unauthenticated downloads
-RUN composer config --global use-github-api false
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Pun installs the packages; the installer verifies the SHA-256 checksum (docs/decisions/005-pun.md)
+RUN curl -fsSL https://punphp.com/install | PUN_INSTALL=/usr/local sh
 COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
 COPY composer.json composer.lock ./
-RUN --mount=type=cache,target=/root/.composer/cache \
-    composer install --no-dev --no-scripts --no-autoloader --no-interaction
+# Copies, not hardlinks: the package store is in a cache mount, another filesystem
+ENV PUN_CACHE_DIR=/root/.cache/pun PUN_LINK_MODE=copy
+RUN --mount=type=cache,target=/root/.cache/pun \
+    pun install --no-dev --no-scripts --no-autoloader
 COPY package.json bun.lock* ./
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     if [ -f package.json ]; then bun install --frozen-lockfile; fi
 COPY . .
 # A throwaway key and env: the build must not need real secrets, and none end up in the image
 ENV APP_ENV=production APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-RUN composer dump-autoload --optimize --no-dev --classmap-authoritative \
+RUN pun composer dump-autoload --optimize --no-dev --classmap-authoritative \
     && if [ -f package.json ]; then bun run build; fi \
     && rm -rf node_modules
 
-# Runtime stage: no Composer, no Bun, non-root.
+# Runtime stage: no Pun, no Bun, non-root.
 FROM base AS runtime
 RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 COPY --from=build /app /app

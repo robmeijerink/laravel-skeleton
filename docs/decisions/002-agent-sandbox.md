@@ -1,15 +1,15 @@
 # 002: Agent Sandbox
 
-`task agent` runs Claude Code in a container, so an agent (even in auto-approve mode) can only reach this project and not the rest of the machine. The setup is the one from rust-skeleton, with Laravel specifics: PHP, Composer and Bun come from the project's own dev image.
+`task agent` runs Claude Code in a container, so an agent (even in auto-approve mode) can only reach this project and not the rest of the machine. The setup is the one from rust-skeleton, with Laravel specifics: PHP, Pun, Composer and Bun come from the project's own dev image.
 
 ## What the Sandbox Guarantees
 * **Only the project is mounted.** No home directory, no Docker socket, no host `~/.claude`.
 * **Secrets in `.secrets/` stay out.** `.env` is a symlink to `.secrets/.env` (done by `task init`); in the sandbox `.secrets/` is an empty, read-only `tmpfs`, so the symlink dangles. See [Secrets](#secrets).
 * **Git, Task, Compose and Claude Code config are read-only.** `.git`, `Taskfile.yaml`, `Taskfile.local.yml`, `.devcontainer/` and `.claude/` are mounted read-only, so the agent can't plant a git hook, task, compose change or Claude Code hook that takes effect on the host. As a side effect the agent can't commit; `git status`, `git diff` and `git log` still work. You review and commit yourself.
-* **Own volumes** for `vendor/`, `node_modules/`, the Composer and Bun caches and the Claude login. The host's `vendor/` is not writable by the agent: Composer scripts (`post-autoload-dump` runs `artisan package:discover`) and service providers in `vendor/` run on the host later.
+* **Own volumes** for `vendor/`, `node_modules/`, the Composer, Pun and Bun caches and the Claude login. The host's `vendor/` is not writable by the agent: Composer scripts (`post-autoload-dump` runs `artisan package:discover`) and service providers in `vendor/` run on the host later.
 * **Hardened container:** non-root user (on Linux with your own uid), all capabilities dropped, `no-new-privileges`, a process limit.
 * **No credentials for git remotes**, so the agent can't push.
-* **`php`, `composer`, `bun` and `node` are denied** in `.claude/settings.json`; the agent uses `task`, which in the sandbox is `.devcontainer/agent-task.sh` (check, test, fmt, artisan, composer, bun).
+* **`php`, `pun`, `composer`, `bun` and `node` are denied** in `.claude/settings.json`; the agent uses `task`, which in the sandbox is `.devcontainer/agent-task.sh` (check, test, fmt, artisan, pun, composer, bun).
 
 ## What It Does Not Guarantee
 * **Code the agent writes runs outside the sandbox later.** Tests, migrations, service providers, Composer scripts, `vite.config.ts` and the app itself run on the host side (the `app` container) via `task check`, `task dev` and the rest. Review the diff, especially `composer.json` scripts, new dependencies and `vite.config.ts`, before running `task` on the host.
@@ -36,4 +36,4 @@ A Claude Pro/Max account has no API key. Log in once with `/login` in the sandbo
 Two empty-by-default volumes, `ai-skills-provider` (at `~/.claude/skills`) and `ai-instructions-provider` (at `/opt/ai-instructions`), both read-only. Bind them on your machine to a local folder (`docker volume create --driver local --opt type=none --opt o=bind --opt device=<folder> <name>`). No personal path or file ends up in the repo or an image. The agent can read them and the network is open: mount a dedicated folder, not a whole vault.
 
 ## Versions
-`Dockerfile.dev-agent` is deliberately unpinned (latest Claude Code via the native installer; its auto-updater is off because an update would be lost when the container is recreated). Run `task agent:update` to get the latest. The base is the project's own dev image (`additional_contexts` in the compose file builds it first), so the agent has exactly the PHP, extensions, Composer and Bun of `app`.
+`Dockerfile.dev-agent` is deliberately unpinned (latest Claude Code via the native installer; its auto-updater is off because an update would be lost when the container is recreated). Run `task agent:update` to get the latest. The base is the project's own dev image (`additional_contexts` in the compose file builds it first), so the agent has exactly the PHP, extensions, Pun, Composer and Bun of `app`.

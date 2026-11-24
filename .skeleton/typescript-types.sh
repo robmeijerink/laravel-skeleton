@@ -6,7 +6,7 @@
 set -euo pipefail
 source .skeleton/lib.sh
 
-composer require spatie/laravel-data spatie/laravel-typescript-transformer --no-interaction --quiet
+pun require spatie/laravel-data spatie/laravel-typescript-transformer
 # Registers the service provider in bootstrap/providers.php; the provider itself is replaced below
 php artisan typescript:install --no-interaction > /dev/null
 
