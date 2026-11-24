@@ -261,7 +261,7 @@ The checks only appear in the list after they have run once. Without a ruleset t
 
 The template repository runs its smoke test on every push, on every pull request and every Monday. It creates a project for each stack and runs `task check` and the production build. Because the template always installs the latest versions, an upstream change can break it without any commit here; the smoke test is how you find out.
 
-To release the template, add a section for the version to `CHANGELOG.md`, merge it to `main`, and push a tag such as `v0.1.0`. The release workflow checks that the tag is on `main` and creates a GitHub release with that section as its notes.
+To release the template, add a section for the version to `CHANGELOG.md`, merge it to `main`, and push a tag such as `v0.1.0`. The release workflow checks that the tag is on `main`, waits for the smoke test of that commit to pass (it does not run it again), and creates a GitHub release with that section as its notes.
 
 ## Customising
 

@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -25,6 +26,28 @@ jobs:
             echo "$GITHUB_REF_NAME is not on main" >&2
             exit 1
           fi
+
+      # Does not start the smoke test again: it waits for the run that the push to main already
+      # started for this commit, and stops the release if that run failed.
+      - name: Smoke test passed on this commit
+        timeout-minutes: 60
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            run_id=$(gh run list --workflow skeleton-smoke.yml --commit "$GITHUB_SHA" --branch main --event push \
+              --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            [ -n "$run_id" ] && break
+            sleep 10
+          done
+          if [ -z "$run_id" ]; then
+            echo "no smoke test run on main found for $GITHUB_SHA" >&2
+            exit 1
+          fi
+          gh run watch "$run_id" --interval 30 --exit-status > /dev/null || {
+            echo "the smoke test for $GITHUB_SHA did not pass: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$run_id" >&2
+            exit 1
+          }
 
       - name: Create the GitHub release from the changelog
         env:
