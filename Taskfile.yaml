@@ -115,7 +115,7 @@ tasks:
       - "{{.APP}} vendor/bin/pest {{.CLI_ARGS}}"
 
   check:
-    desc: Rector and Pint (edit files), Larastan (max), Pest and type coverage
+    desc: Pun (formats and fixes, then analyses at max), frontend checks, Pest and type coverage
     silent: true
     # One container and quiet output: this is the feedback loop for AI agents, every line costs tokens.
     # Formats instead of only checking, so agents never spend a round trip on formatting (CI still checks).
@@ -124,10 +124,10 @@ tasks:
       - "{{.COMPOSE}} --progress quiet run --rm app sh -c 'composer qa'"
 
   fmt:
-    desc: Format the code with Pint
+    desc: Format the code with Pun
     deps: [volumes]
     cmds:
-      - "{{.APP}} vendor/bin/pint"
+      - "{{.APP}} vendor/bin/pun format"
 
   artisan:
     desc: Run any artisan command (task artisan -- make:model Post -m)
@@ -135,8 +135,16 @@ tasks:
     cmds:
       - "{{.APP}} php artisan {{.CLI_ARGS}}"
 
+  pun:
+    desc: Run any Pun command, e.g. packages (task pun -- require spatie/laravel-data)
+    deps: [volumes]
+    cmds:
+      # The project's locked Pun once vendor/ exists; the image's Pun installs a fresh clone
+      - >-
+        {{.APP}} sh -c '[ -x vendor/bin/pun ] && exec vendor/bin/pun "$@" || exec pun "$@"' pun {{.CLI_ARGS}}
+
   composer:
-    desc: Run any Composer command (task composer -- require spatie/laravel-data)
+    desc: Run a Composer command or script (task composer -- qa)
     deps: [volumes]
     cmds:
       - "{{.APP}} composer {{.CLI_ARGS}}"
@@ -154,7 +162,7 @@ tasks:
       - "{{.APP}} bash"
 
   build:dev:
-    desc: Rebuild the dev image with the newest PHP, Composer and Bun
+    desc: Rebuild the dev image with the newest PHP, Composer, Pun and Bun
     cmds:
       - "{{.COMPOSE}} build --pull --no-cache app"
 

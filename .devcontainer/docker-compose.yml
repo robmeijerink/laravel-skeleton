@@ -13,11 +13,16 @@ services:
       # Colima), so Vite's watcher polls for changes; without this, hot reload misses edits made in your editor
       CHOKIDAR_USEPOLLING: "true"
       CHOKIDAR_INTERVAL: "300"
-      # laravel/pao gives AI agents compact output from Pest, PHPStan, Rector and Artisan. It recognises an
-      # agent by these variables; without a value Compose passes them on from the shell that runs `task`.
+      # laravel/pao gives AI agents compact output from Pest and Artisan, and Pun has its own agent output.
+      # Both recognise an agent by these variables; without a value Compose passes them on from the shell that runs `task`.
       CLAUDECODE:
       AI_AGENT:
       CURSOR_AGENT:
+      # Pun's package store and result cache, in the shared Composer volume. Copies instead of hardlinks:
+      # vendor/ is on the bind mount, another filesystem, and a hardlink would let an edit in one
+      # project's vendor/ change every other project's.
+      PUN_CACHE_DIR: /composer/cache/pun
+      PUN_LINK_MODE: copy
     volumes:
       - ../:/app
       # Composer and Bun caches are shared by all projects (like a local ~/.composer and ~/.bun)
@@ -73,7 +78,7 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile.dev-agent
-      # The project's own dev image (built first), so the agent has the same PHP, extensions, Composer and Bun as `app`
+      # The project's own dev image (built first), so the agent has the same PHP, extensions, Composer, Pun and Bun as `app`
       additional_contexts:
         devimage: service:app
       args:
@@ -93,6 +98,8 @@ services:
       APP_ENV: testing
       COMPOSER_HOME: /home/agent/.composer
       COMPOSER_CACHE_DIR: /home/agent/.cache/composer
+      PUN_CACHE_DIR: /home/agent/.cache/composer/pun
+      PUN_LINK_MODE: copy
     # .secrets/ is hidden from the agent (empty and read-only), so it can't read what you keep there.
     tmpfs:
       - /app/.secrets:ro,size=1m

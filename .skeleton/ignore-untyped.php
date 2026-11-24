@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 // Reads the output of `pest --type-coverage` on stdin and appends `// @pest-ignore-type` to every line
 // that Pest lists as untyped (e.g. `app/Foo.php .... pa30 75%` = a parameter on line 30). Used once by
-// `task init` for code that came from the Laravel installer and that Rector could not type, so the
+// `task init` for code that came from the Laravel installer and that Pun's lint could not type, so the
 // minimum can stay at 100 for everything written afterwards. Prints one line per marked location.
 
 $marked = 0;

@@ -31,7 +31,7 @@ The template contains no Laravel code. When you create a project, `task init` ru
 | [gum](https://github.com/charmbracelet/gum) | Optional. Needed for the interactive questions of `task init`; flags work without it. |
 | [fzf](https://github.com/junegunn/fzf) | Optional. Needed for the searchable command menu (`task` without arguments). |
 
-PHP, Composer, Node and Bun are not needed on your machine. Keep projects in a folder under your home directory, which Docker can access by default.
+PHP, Pun, Composer, Node and Bun are not needed on your machine. Keep projects in a folder under your home directory, which Docker can access by default.
 
 ## Quick start
 
@@ -81,11 +81,11 @@ The React, Vue and Livewire kits are maintained by Laravel and installed in thei
 1. Runs the latest Laravel installer in a container, with PostgreSQL, Pest and Bun, and the stack you chose.
 2. Merges the new app into the repository. Files from the template, such as this setup and the agent configuration, are kept.
 3. Connects the app to the PostgreSQL container and creates a separate `testing` database configuration with fake values in `.env.testing`.
-4. Installs the quality tools (Larastan, Rector, the Pest plugins) and [Essentials](https://github.com/nunomaduro/essentials), and adds the Composer scripts that `task check` uses.
+4. Replaces Pint with [Pun](https://punphp.com), installs the Pest plugins and [Essentials](https://github.com/nunomaduro/essentials), writes `pun.toml`, and adds the Composer scripts that `task check` uses.
 5. Installs the add-ons you chose and removes the services you did not choose from the Docker setup.
 6. Configures Vite to work inside the container, and makes the Inertia kits' tests pass while `task dev` is running.
 7. Moves `.env` to `.secrets/.env` and puts a link in its place, so the AI sandbox cannot read it.
-8. Lets Rector, Pint and the frontend formatter tidy the installer's code. What still fails the strictest checks is recorded once: a Larastan baseline, and line markers for type and code coverage. Your own code starts with no exceptions.
+8. Lets Pun and the frontend formatter tidy the installer's code. What still fails the strictest checks is recorded once: a Pun baseline, and line markers for type and code coverage. Your own code starts with no exceptions.
 9. Removes everything that was only needed for setup: the `.skeleton/` folder, the `init` task, the template's smoke test, release workflow and changelog, this README and the MIT license.
 
 If something goes wrong halfway, `init` stops and tells you how to undo the partial install.
@@ -96,7 +96,7 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 
 | | |
 | :--- | :--- |
-| **PHP 8.5** | In a Docker image with Composer and the extensions `pdo_pgsql`, `intl`, `zip`, `bcmath`, `pcntl`, `redis` and `opcache`. The PHP version is the only version that is pinned; Dependabot proposes upgrades. |
+| **PHP 8.5** | In a Docker image with Pun, Composer and the extensions `pdo_pgsql`, `intl`, `zip`, `bcmath`, `pcntl`, `redis` and `opcache`. The PHP version is the only version that is pinned; Dependabot proposes upgrades. |
 | **PostgreSQL 18** | For development and tests. Tests use a separate `testing` database, so they never touch your development data. |
 | **Bun** | Replaces Node and npm: installs the frontend packages and runs Vite. |
 | **Redis** | Optional, via `--redis` |
@@ -104,17 +104,15 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 
 ### Code quality
 
-`task check` runs these tools in one go. It fixes what it can (Rector, Pint and the frontend formatter change files) and fails on the rest.
+`task check` runs these tools in one go. It fixes what it can (Pun and the frontend formatter change files) and fails on the rest.
 
 | Tool | Setting |
 | :--- | :--- |
-| [Pest](https://pestphp.com) | Test framework, with the arch, type-coverage and PHPStan plugins. Tests run in parallel, each process with its own copy of the testing database. |
+| [Pun](https://punphp.com) | One tool, configured in `pun.toml`, that formats like Pint (Laravel preset), lints with Rector's dead-code, code-quality, type-declaration and PHP-upgrade sets, and analyses like PHPStan at **level max**, the strictest level, with Larastan's and Carbon's checks. It also installs the Composer packages. |
+| [Pest](https://pestphp.com) | Test framework, with the arch and type-coverage plugins. Tests run in parallel, each process with its own copy of the testing database. |
 | Pest arch tests | `tests/Unit/ArchTest.php`, with the `php` and `security` presets. Add your own rules there. |
 | Pest type coverage | Minimum **100%**: every parameter, return value and property must have a type |
-| [Larastan](https://github.com/larastan/larastan) | PHPStan for Laravel at **level max**, the strictest level, with the Carbon extension |
-| [Rector](https://getrector.com) | Removes dead code, simplifies code, adds missing types and applies PHP upgrades |
-| [Pint](https://laravel.com/docs/pint) | Code formatting with the Laravel preset |
-| [PAO](https://github.com/laravel/pao) | When an AI agent runs the tests, PHPStan, Rector or Artisan, the output becomes compact JSON instead of progress bars and colours, which saves the agent tokens. Unchanged when you run them yourself. |
+| [PAO](https://github.com/laravel/pao) | When an AI agent runs the tests or Artisan, the output becomes compact JSON instead of progress bars and colours, which saves the agent tokens. Pun does the same for its own output. Unchanged when you run them yourself. |
 | Frontend lint and format | [Oxlint](https://oxc.rs) and Oxfmt for every stack with JavaScript: the React and Vue kits run them through Vite+, the other stacks directly (style in `.oxfmtrc.json`: single quotes, 4 spaces) |
 | TypeScript | With `--react`, `--vue`, `--spa-react` and `--spa-vue`: a full typecheck with `tsc` or `vue-tsc` (`bun run types:check`) |
 | Code coverage | Minimum **100%**, measured with pcov: every line of your code needs a test. Lines of the starter kit that its own tests don't reach are excluded once, with PHPUnit's `@codeCoverageIgnore` markers. |
@@ -132,7 +130,7 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 | | |
 | :--- | :--- |
 | `AGENTS.md` | Short instructions for any agent (Claude Code, Codex, Cursor): which commands to use and the house rules. `CLAUDE.md` points to it. |
-| `.claude/settings.json` | Permissions for Claude Code: `task` and read-only git commands are allowed, adding dependencies asks first, and direct `php`, `composer`, `bun`, `node` and `npm` calls are blocked. |
+| `.claude/settings.json` | Permissions for Claude Code: `task` and read-only git commands are allowed, adding dependencies asks first, and direct `php`, `pun`, `composer`, `bun`, `node` and `npm` calls are blocked. |
 | `task agent` | Runs Claude Code in a sandbox container. See [Working with AI agents](#working-with-ai-agents). |
 
 ### Infrastructure
@@ -157,25 +155,26 @@ Run `task` without arguments for a searchable menu (needs fzf). Arguments for th
 | `task init` | Create the Laravel app (only in the template; removed afterwards) |
 | `task dev` | Start Laravel, a queue worker, the log viewer and Vite with hot reloading on http://localhost:8000 |
 | `task down` | Stop the containers |
-| `task check` | Run Rector, Pint, the frontend checks, Larastan, the tests and the type-coverage check. Run this before every commit. |
+| `task check` | Run Pun (format, lint, analysis), the frontend checks, the tests and the type-coverage check. Run this before every commit. |
 | `task test` | Run the tests, for example `task test -- --filter=UserTest` |
-| `task fmt` | Format the code with Pint |
+| `task fmt` | Format the code with Pun |
 | `task artisan -- <command>` | Run Artisan, for example `task artisan -- make:model Post -m` |
-| `task composer -- <command>` | Run Composer, for example `task composer -- require spatie/laravel-data` |
+| `task pun -- <command>` | Run Pun, for example `task pun -- require spatie/laravel-data` to add a package |
+| `task composer -- <command>` | Run a Composer script or command, for example `task composer -- qa` |
 | `task bun -- <command>` | Run Bun, for example `task bun -- add -d vitest` |
 | `task shell` | Open a shell in the app container |
 | `task agent` | Start Claude Code in the sandbox; Claude's own flags go after `--` |
 | `task agent:update` | Rebuild the sandbox with the latest Claude Code |
 | `task build` | Build the production image, tagged with the folder name |
-| `task build:dev` | Rebuild the development image with the latest Composer, Bun and Laravel installer |
+| `task build:dev` | Rebuild the development image with the latest Composer, Pun, Bun and Laravel installer |
 
 The quality checks are also Composer scripts, so `task check`, the sandbox and CI all run the same definition:
 
 | Script | What it runs |
 | :--- | :--- |
 | `composer qa` | Everything `task check` runs (the tests run once, with coverage) |
-| `composer qa:ci` | The same, but Rector, Pint and the frontend formatter only report instead of changing files (used by CI) |
-| `composer rector`, `fix`, `stan`, `test:unit`, `test:types` | Rector, Pint, Larastan, the tests without coverage, and the type-coverage check on their own |
+| `composer qa:ci` | The same, but Pun and the frontend formatter only report instead of changing files (used by CI) |
+| `composer pun`, `test:unit`, `test:types` | Pun (`pun check --fix`), the tests without coverage, and the type-coverage check on their own |
 | `composer test:coverage` | The tests with coverage; fails below 100% |
 | `composer types:generate` | Regenerate the TypeScript types from PHP (React, Vue and the SPAs) |
 
@@ -193,7 +192,7 @@ The quality checks are also Composer scripts, so `task check`, the sandbox and C
 
 PostgreSQL is not published on your machine, so it never clashes with the database of another project. To connect a database tool, add a `ports:` entry to the `postgres` service in `.devcontainer/docker-compose.yml`.
 
-The Composer and Bun download caches are shared between all projects in the Docker volumes `php_composer` and `bun_cache`. Remove them with `docker volume rm php_composer bun_cache` to start fresh.
+The Composer, Pun and Bun download caches are shared between all projects in the Docker volumes `php_composer` (Pun's store is in its `pun` folder) and `bun_cache`. Remove them with `docker volume rm php_composer bun_cache` to start fresh.
 
 **Hot reload.** Vite checks for changed files every 300 ms instead of waiting for file events, because file events from your editor do not always reach the container (they do not on macOS with Colima). Change the interval with `CHOKIDAR_INTERVAL` in `.devcontainer/docker-compose.yml`.
 
@@ -222,7 +221,7 @@ The sandbox:
 - runs as a non-root user with all Linux capabilities removed;
 - uses the same PostgreSQL server as you, but only the `testing` database, through `.env.testing`.
 
-Inside the sandbox, `task check`, `task test`, `task fmt`, `task artisan`, `task composer` and `task bun` work the same as on your machine.
+Inside the sandbox, `task check`, `task test`, `task fmt`, `task artisan`, `task pun`, `task composer` and `task bun` work the same as on your machine.
 
 The sandbox limits what an agent can reach, but the code it writes still runs on your machine when you run `task check` or `task dev`, and its network access is open. Review its changes before you run them. The [sandbox decision record](docs/decisions/002-agent-sandbox.md) explains the limits in detail.
 
@@ -247,7 +246,7 @@ docker volume create --driver local --opt type=none --opt o=bind --opt device=$H
 
 ## Keeping projects up to date
 
-Dependabot checks every week for updates to PHP, the Composer and Bun packages, and the GitHub Actions. A new PHP version arrives as a pull request for the development image only: Dependabot cannot read the FrankenPHP tag of the production image. CI then fails with a message that tells you which line to change in `Dockerfile`; change it in the pull request and the checks go green.
+Dependabot checks every week for updates to PHP, the Composer packages (including Pun itself), the Bun packages and the GitHub Actions. A new PHP version arrives as a pull request for the development image only: Dependabot cannot read the FrankenPHP tag of the production image. CI then fails with a message that tells you which line to change in `Dockerfile`; change it in the pull request and the checks go green.
 
 A workflow merges minor and patch updates automatically once all required checks pass. Major updates, and any update with failing checks, stay open for you to review. To make this work, set up each repository once:
 
@@ -268,7 +267,7 @@ To release the template, add a section for the version to `CHANGELOG.md`, merge 
 - **Ports.** Change them in `.devcontainer/docker-compose.yml`.
 - **PHP version.** Change the `FROM` line in both `.devcontainer/Dockerfile` and `Dockerfile`, or wait for Dependabot. CI checks that both use the same version.
 - **Essentials.** Publish its configuration with `task artisan -- vendor:publish --tag=essentials-config` and switch features off in `config/essentials.php`.
-- **Quality rules.** Rector is configured in `rector.php`, Larastan in `phpstan.neon` and the architecture rules in `tests/Unit/ArchTest.php`.
+- **Quality rules.** Pun's format, lint and analysis rules are in `pun.toml` ([reference](https://punphp.com/docs/configuration/pun-toml)), the architecture rules in `tests/Unit/ArchTest.php`.
 - **Extra services.** Add them to `.devcontainer/docker-compose.yml`, for example a search engine or object storage.
 - **The template itself.** Add-ons are small scripts in `.skeleton/addons/`, and the SPA starting points are in `.skeleton/stubs/`.
 
@@ -309,6 +308,7 @@ The reasoning behind the setup is in [`docs/decisions/`](docs/decisions/):
 - [Agent sandbox](docs/decisions/002-agent-sandbox.md): what the sandbox protects against, and what it does not
 - [Template and `task init`](docs/decisions/003-template-and-init.md): why the template contains no Laravel code, and which upstream quirks `init` works around
 - [Stack choices](docs/decisions/004-stack-choices.md): PostgreSQL, Bun, FrankenPHP, and how versions stay current
+- [Pun](docs/decisions/005-pun.md): why Pun replaces Pint, Rector, Larastan and most of Composer
 
 ## License
 

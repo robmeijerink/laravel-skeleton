@@ -20,17 +20,18 @@ Arguments for the underlying tool go after `--`.
 | :--- | :--- |
 | `task dev` | Start the app at http://localhost:8000 |
 | `task down` | Stop the containers |
-| `task check` | Run Rector, Pint, the frontend checks, Larastan, the tests and the type-coverage check. Run this before every commit. |
+| `task check` | Run Pun (format, lint, analysis), the frontend checks, the tests and the type-coverage check. Run this before every commit. |
 | `task test` | Run the tests, for example `task test -- --filter=UserTest` |
-| `task fmt` | Format the code with Pint |
+| `task fmt` | Format the code with Pun |
 | `task artisan -- <command>` | Run Artisan, for example `task artisan -- make:model Post -m` |
-| `task composer -- <command>` | Run Composer, for example `task composer -- require spatie/laravel-data` |
+| `task pun -- <command>` | Run Pun, for example `task pun -- require spatie/laravel-data` to add a package |
+| `task composer -- <command>` | Run a Composer script or command, for example `task composer -- qa` |
 | `task bun -- <command>` | Run Bun, for example `task bun -- add -d vitest` |
 | `task shell` | Open a shell in the app container |
 | `task agent` | Start Claude Code in the sandbox; Claude's own flags go after `--` |
 | `task agent:update` | Rebuild the sandbox with the latest Claude Code |
 | `task build` | Build the production image |
-| `task build:dev` | Rebuild the development image with the latest Composer and Bun |
+| `task build:dev` | Rebuild the development image with the latest Composer, Pun and Bun |
 
 ## Development environment
 
@@ -52,18 +53,16 @@ Mailpit (http://localhost:8025) and Redis (`localhost:6379`) are there too if yo
 
 `task check` runs these in order and stops at the first failure:
 
-1. **Rector** removes dead code, simplifies code, adds missing types and applies PHP upgrades (`rector.php`).
-2. **Pint** formats the code with the Laravel preset.
-3. **Frontend checks**: Oxlint and Oxfmt (`bun run check:fix`) and, with TypeScript, the typecheck (`bun run types:check`).
-4. **Larastan** analyses the code at level max, the strictest level (`phpstan.neon`). If the starter kit's code did not pass, it is listed in `phpstan-baseline.neon`; keep that list from growing.
-5. **Pest** runs the tests in parallel, including the architecture rules in `tests/Unit/ArchTest.php`, and measures code coverage. The minimum is 100% (`test:coverage` in `composer.json`).
-6. **Pest type coverage** checks that every parameter, return value and property has a type. The minimum is 100% (`test:types` in `composer.json`).
+1. **[Pun](https://punphp.com)** (`pun check --fix`, configured in `pun.toml`) formats the code with Pint's Laravel rules, applies Rector's dead-code, code-quality, type-declaration and PHP-upgrade sets, and analyses the code at PHPStan's level max, the strictest level, with Larastan's checks. If the starter kit's code did not pass the analysis, it is listed in `pun-baseline.toml`; keep that list from growing.
+2. **Frontend checks**: Oxlint and Oxfmt (`bun run check:fix`) and, with TypeScript, the typecheck (`bun run types:check`).
+3. **Pest** runs the tests in parallel, including the architecture rules in `tests/Unit/ArchTest.php`, and measures code coverage. The minimum is 100% (`test:coverage` in `composer.json`).
+4. **Pest type coverage** checks that every parameter, return value and property has a type. The minimum is 100% (`test:types` in `composer.json`).
 
-[PAO](https://github.com/laravel/pao) makes the output compact when an AI agent runs these tools, and leaves it unchanged for you.
+When an AI agent runs these tools, Pun and [PAO](https://github.com/laravel/pao) (for Pest and Artisan) make the output compact; for you it stays unchanged.
 
-Rector, Pint and the frontend formatter change files; the other steps only report. CI runs the same steps but changes nothing, so it fails if any of them would still change something. `.prettierignore` keeps the frontend formatter away from the files that came with the template.
+Pun and the frontend formatter change files; the other steps only report. CI runs the same steps but changes nothing, so it fails if any of them would still change something. `.prettierignore` keeps the frontend formatter away from the files that came with the template.
 
-The steps are Composer scripts, so `task check`, the AI sandbox and CI share one definition: `composer qa` runs them all, `composer qa:ci` is the CI version, and `rector`, `fix`, `stan`, `test:unit` and `test:types` run one step each.
+The steps are Composer scripts, so `task check`, the AI sandbox and CI share one definition: `composer qa` runs them all, `composer qa:ci` is the CI version, and `pun`, `test:unit` and `test:types` run one step each.
 
 **Code coverage.** Every line of your code needs a test. Lines of the starter kit that its own tests did not reach are excluded with PHPUnit's markers: `// @codeCoverageIgnore` for a single line, or a `// @codeCoverageIgnoreStart` / `// @codeCoverageIgnoreEnd` pair around several. Remove a marker when you add a test for that code. Run `task test -- --coverage` for a report per file.
 
@@ -102,7 +101,7 @@ Never run `php artisan config:cache` locally: it writes all your secrets in plai
 
 ## Working with AI agents
 
-`AGENTS.md` tells agents (Claude Code, Codex, Cursor) how to work in this project; `CLAUDE.md` points to it. `.claude/settings.json` allows `task` and read-only git commands, asks before adding dependencies, and blocks direct `php`, `composer`, `bun`, `node` and `npm` calls.
+`AGENTS.md` tells agents (Claude Code, Codex, Cursor) how to work in this project; `CLAUDE.md` points to it. `.claude/settings.json` allows `task` and read-only git commands, asks before adding dependencies, and blocks direct `php`, `pun`, `composer`, `bun`, `node` and `npm` calls.
 
 `task agent` starts Claude Code in its own container. The first time, Claude asks whether you trust the folder and you log in with `/login`; both are kept between sessions. The sandbox:
 
@@ -113,7 +112,7 @@ Never run `php artisan config:cache` locally: it writes all your secrets in plai
 - runs as a non-root user with all Linux capabilities removed;
 - uses only the `testing` database, through `.env.testing`.
 
-Inside the sandbox, `task check`, `task test`, `task fmt`, `task artisan`, `task composer` and `task bun` work as on your machine.
+Inside the sandbox, `task check`, `task test`, `task fmt`, `task artisan`, `task pun`, `task composer` and `task bun` work as on your machine.
 
 The code an agent writes still runs on your machine when you run `task check` or `task dev`, and the sandbox has open network access. Review its changes before you run them. The [sandbox decision record](docs/decisions/002-agent-sandbox.md) explains the limits.
 
@@ -139,7 +138,7 @@ docker volume create --driver local --opt type=none --opt o=bind --opt device=$H
 
 ## Keeping it up to date
 
-Dependabot checks every week for updates to PHP, the Composer and Bun packages, and the GitHub Actions. A new PHP version arrives as a pull request for the development image only: Dependabot cannot read the FrankenPHP tag of the production image. CI then fails with a message that tells you which line to change in `Dockerfile`; change it in the pull request and the checks go green. Minor and patch updates merge themselves once CI passes; major updates and failing updates wait for you.
+Dependabot checks every week for updates to PHP, the Composer packages (including Pun itself), the Bun packages and the GitHub Actions. A new PHP version arrives as a pull request for the development image only: Dependabot cannot read the FrankenPHP tag of the production image. CI then fails with a message that tells you which line to change in `Dockerfile`; change it in the pull request and the checks go green. Minor and patch updates merge themselves once CI passes; major updates and failing updates wait for you.
 
 For this to work, set up the repository once:
 
