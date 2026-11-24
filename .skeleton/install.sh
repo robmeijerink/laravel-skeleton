@@ -240,5 +240,6 @@ mv .skeleton/dependabot.yml .github/dependabot.yml
 cp .skeleton/README.project.md README.md
 sed -i "s/__NAME__/$NAME/g" README.md
 # The template's MIT LICENSE is not the project's: pick your own (the Laravel app itself is MIT in composer.json)
-rm -rf .skeleton .github/workflows/skeleton-smoke.yml LICENSE
+# The template's changelog and release workflow are about the template, not the project
+rm -rf .skeleton .github/workflows/skeleton-smoke.yml .github/workflows/release.yml CHANGELOG.md LICENSE
 echo "Done. Next: task check, then task dev"

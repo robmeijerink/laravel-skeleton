@@ -86,7 +86,7 @@ The React, Vue and Livewire kits are maintained by Laravel and installed in thei
 6. Configures Vite to work inside the container, and makes the Inertia kits' tests pass while `task dev` is running.
 7. Moves `.env` to `.secrets/.env` and puts a link in its place, so the AI sandbox cannot read it.
 8. Lets Rector, Pint and the frontend formatter tidy the installer's code. What still fails the strictest checks is recorded once: a Larastan baseline, and line markers for type and code coverage. Your own code starts with no exceptions.
-9. Removes everything that was only needed for setup: the `.skeleton/` folder, the `init` task, the template's smoke test, this README and the MIT license.
+9. Removes everything that was only needed for setup: the `.skeleton/` folder, the `init` task, the template's smoke test, release workflow and changelog, this README and the MIT license.
 
 If something goes wrong halfway, `init` stops and tells you how to undo the partial install.
 
@@ -260,6 +260,8 @@ A workflow merges minor and patch updates automatically once all required checks
 The checks only appear in the list after they have run once. Without a ruleset the workflow does not merge anything, because it would merge before the checks finish.
 
 The template repository runs its smoke test on every push, on every pull request and every Monday. It creates a project for each stack and runs `task check` and the production build. Because the template always installs the latest versions, an upstream change can break it without any commit here; the smoke test is how you find out.
+
+To release the template, add a section for the version to `CHANGELOG.md`, merge it to `main`, and push a tag such as `v0.1.0`. The release workflow checks that the tag is on `main` and creates a GitHub release with that section as its notes.
 
 ## Customising
 
