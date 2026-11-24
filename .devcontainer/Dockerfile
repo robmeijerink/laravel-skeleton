@@ -26,6 +26,9 @@ COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 # This Pun installs the packages of a fresh clone (vendor/ is empty). The checks run the project's own
 # locked Pun from vendor/bin, which Dependabot updates. The installer verifies the SHA-256 checksum.
 RUN curl -fsSL https://punphp.com/install | PUN_INSTALL=/usr/local sh
+# Pun calls git; the project is a bind mount owned by your user, and the container runs as root, so
+# git would print a "dubious ownership" warning on every `task check`
+RUN git config --system --add safe.directory /app
 # Bun replaces Node and pnpm: it runs Vite and installs the frontend packages
 COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
 RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx

@@ -5,6 +5,9 @@
 set -euo pipefail
 cd /app
 source .skeleton/lib.sh
+# Init reads Pest's human output (type coverage, code coverage). When an agent runs `task init`, PAO
+# would turn that output into JSON and the markers would silently not be set (docs/decisions/003).
+export PAO_DISABLE=1
 
 STACK="$1" AUTH="$2" FILAMENT="$3" MAILPIT="$4" REDIS="$5" NAME="$6"
 TMP=/tmp/laravel-app
@@ -144,9 +147,17 @@ PHP
 php -r '
   $file = "composer.json";
   $json = json_decode(file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
-  // Scripts of the installer that call the tools Pun replaces
-  foreach ($json["scripts"] ?? [] as $name => $cmd) {
-    if (preg_match("/\\b(pint|phpstan|rector)\\b/", implode(" ", (array) $cmd))) unset($json["scripts"][$name]);
+  // The kits call the tools Pun replaces from their own scripts (lint, lint:check, types:check), which
+  // other scripts reference (`composer test` runs @lint:check). Point them at Pun instead of removing them.
+  foreach ($json["scripts"] ?? [] as $name => $cmds) {
+    if (!is_array($cmds)) $cmds = [$cmds];
+    foreach ($cmds as $i => $cmd) {
+      $check = preg_match("/--(test|dry-run)\\b/", $cmd) === 1;
+      if (preg_match("/\\bpint\\b/", $cmd)) $cmds[$i] = $check ? "pun format --test" : "pun format";
+      elseif (preg_match("/\\bphpstan\\b/", $cmd)) $cmds[$i] = "pun analyse";
+      elseif (preg_match("/\\brector\\b/", $cmd)) $cmds[$i] = $check ? "pun lint" : "pun lint --fix";
+    }
+    $json["scripts"][$name] = count($cmds) === 1 ? $cmds[0] : $cmds;
   }
   // Format and lint fixes, then analysis; `pun:ci` only reports
   $json["scripts"]["pun"] = "pun check --fix";
