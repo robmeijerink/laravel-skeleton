@@ -26,7 +26,10 @@ COPY . .
 ENV APP_ENV=production APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 RUN pun composer dump-autoload --optimize --no-dev --classmap-authoritative \
     && if [ -f package.json ]; then bun run build; fi \
-    && rm -rf node_modules
+    && rm -rf node_modules \
+    # The runtime user (www-data) must read every file. A checkout can hold files only its owner can
+    # read: on macOS bind mounts, `sed -i` in the container (as `task init` does) leaves them at 0600
+    && chmod -R a+rX .
 
 # Runtime stage: no Pun, no Bun, non-root.
 FROM base AS runtime
