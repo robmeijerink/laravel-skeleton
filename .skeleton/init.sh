@@ -73,7 +73,8 @@ fi
 echo "Creating '$NAME': stack=$STACK auth=$AUTH filament=$FILAMENT mailpit=$MAILPIT redis=$REDIS"
 [ "$DRY" = 1 ] && exit 0
 # -T: no TTY, so it also works in CI; the installer runs with --no-interaction anyway
-if ! docker compose -f .devcontainer/docker-compose.yml run --rm -T --no-deps app \
+# Postgres starts with it: init runs the tests once to measure coverage
+if ! docker compose -f .devcontainer/docker-compose.yml run --rm -T app \
   bash .skeleton/install.sh "$STACK" "$AUTH" "$FILAMENT" "$MAILPIT" "$REDIS" "$NAME"; then
   cat >&2 <<'MSG'
 

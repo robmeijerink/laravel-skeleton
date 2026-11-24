@@ -54,6 +54,8 @@ done
 # ---- 5. Dependencies in the repo (node_modules was left behind in the temporary folder) ------
 composer install --no-interaction --no-progress --quiet
 [ -f package.json ] && bun install --no-progress
+# Oxlint and Oxfmt where the starter kit doesn't bring its own frontend checks
+bash .skeleton/frontend-tools.sh
 # Add-ons
 [ "$MAILPIT" = 1 ] && bash .skeleton/addons/mailpit.sh
 [ "$REDIS" = 1 ] && bash .skeleton/addons/redis.sh
@@ -144,16 +146,17 @@ php -r '
   $json["scripts"]["stan"] = "phpstan analyse --no-progress --memory-limit=1G";
   $json["scripts"]["test:unit"] = "pest --compact";
   $json["scripts"]["test:types"] = "pest --type-coverage --min=100 --compact";
-  // Composer kills a script after 300s; a cold PHPStan cache on a slow machine can need longer
   $json["scripts"]["rector"] = "rector --no-progress-bar";
-  $json["scripts"]["test:coverage"] = "pest --coverage --compact";
+  // The tests run once, with coverage (pcov), and fail below the minimum
+  $json["scripts"]["test:coverage"] = "pest --coverage --min=100 --compact";
   // Frontend: reuse the scripts the starter kit (or SPA stub) defines; Blade and Livewire have none
   $npm = is_file("package.json") ? (json_decode(file_get_contents("package.json"), true)["scripts"] ?? []) : [];
   $front = $frontCi = [];
   if (isset($npm["check:fix"], $npm["check"])) { $front[] = "bun run check:fix"; $frontCi[] = "bun run check"; }
   if (isset($npm["types:check"])) { $front[] = $frontCi[] = "bun run types:check"; }
-  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@rector", "@fix", ...$front, "@stan", "@test:unit", "@test:types"];
-  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "rector --dry-run --no-progress-bar", "pint --test", ...$frontCi, "@stan", "@test:unit", "@test:types"];
+  // Composer kills a script after 300s; a cold PHPStan cache on a slow machine can need longer
+  $json["scripts"]["qa"] = ["Composer\\Config::disableProcessTimeout", "@rector", "@fix", ...$front, "@stan", "@test:coverage", "@test:types"];
+  $json["scripts"]["qa:ci"] = ["Composer\\Config::disableProcessTimeout", "rector --dry-run --no-progress-bar", "pint --test", ...$frontCi, "@stan", "@test:coverage", "@test:types"];
   file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
 '
 
@@ -170,6 +173,7 @@ ln -s .secrets/.env .env
 # Bring the installer's own code up to the house rules: Rector adds missing types, Pint formats
 vendor/bin/rector --no-progress-bar > /dev/null 2>&1 || true
 vendor/bin/pint --quiet || true
+[ -f package.json ] && { bun run check:fix > /dev/null 2>&1 || true; }
 vendor/bin/phpstan analyse --no-progress --memory-limit=1G --generate-baseline > /dev/null 2>&1 || true
 if [ -s phpstan-baseline.neon ] && grep -q 'message' phpstan-baseline.neon; then
   sed -i 's|^includes:|&\n    - phpstan-baseline.neon|' phpstan.neon
@@ -195,6 +199,25 @@ total=$(echo "$report" | total)
 if [ -n "$total" ] && [ "${total%.*}" -lt 100 ]; then
   sed -i "s/--type-coverage --min=100/--type-coverage --min=${total%.*}/" composer.json
   echo "NOTE: type coverage is still ${total}% after marking; the minimum starts at ${total%.*} instead of 100." >&2
+fi
+
+# Code coverage must be 100 as well, the same way: statements of the installer's code that its own
+# tests don't reach get a line-level `@codeCoverageIgnore` marker (PHPUnit's mechanism), so every line
+# written afterwards needs a test. Needs the database, which is why init starts Postgres.
+code_coverage() { vendor/bin/pest --coverage --min=0 --compact 2>&1 | sed 's/\x1b\[[0-9;]*m//g'; }
+ctotal=$(code_coverage | total)
+if [ -n "$ctotal" ] && [ "${ctotal%.*}" -lt 100 ]; then
+  echo "NOTE: untested code from the installer, marked with @codeCoverageIgnore:" >&2
+  vendor/bin/pest --coverage-clover /tmp/clover.xml > /dev/null 2>&1 || true
+  php .skeleton/ignore-uncovered.php /tmp/clover.xml || true
+  vendor/bin/pint --quiet || true
+  ctotal=$(code_coverage | total)
+fi
+if [ -z "$ctotal" ]; then
+  echo "NOTE: could not measure code coverage (do the tests pass?); the minimum stays 100." >&2
+elif [ "${ctotal%.*}" -lt 100 ]; then
+  sed -i "s/pest --coverage --min=100/pest --coverage --min=${ctotal%.*}/" composer.json
+  echo "NOTE: code coverage is still ${ctotal}% after marking; the minimum starts at ${ctotal%.*} instead of 100." >&2
 fi
 
 sed -i 's/laravel-skeleton/'"$NAME"'/g' .devcontainer/devcontainer.json

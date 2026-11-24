@@ -85,7 +85,7 @@ The React, Vue and Livewire kits are maintained by Laravel and installed in thei
 5. Installs the add-ons you chose and removes the services you did not choose from the Docker setup.
 6. Configures Vite to work inside the container, and makes the Inertia kits' tests pass while `task dev` is running.
 7. Moves `.env` to `.secrets/.env` and puts a link in its place, so the AI sandbox cannot read it.
-8. Lets Rector and Pint tidy the installer's code. Code that still fails the strictest checks is recorded once in a baseline, so your own code starts with no exceptions.
+8. Lets Rector, Pint and the frontend formatter tidy the installer's code. What still fails the strictest checks is recorded once: a Larastan baseline, and line markers for type and code coverage. Your own code starts with no exceptions.
 9. Removes everything that was only needed for setup: the `.skeleton/` folder, the `init` task, the template's smoke test, this README and the MIT license.
 
 If something goes wrong halfway, `init` stops and tells you how to undo the partial install.
@@ -114,9 +114,9 @@ If something goes wrong halfway, `init` stops and tells you how to undo the part
 | [Larastan](https://github.com/larastan/larastan) | PHPStan for Laravel at **level max**, the strictest level |
 | [Rector](https://getrector.com) | Removes dead code, simplifies code, adds missing types and applies PHP upgrades |
 | [Pint](https://laravel.com/docs/pint) | Code formatting with the Laravel preset |
-| Frontend lint and format | With `--react` and `--vue`: the kit's own [Oxlint](https://oxc.rs) and Oxfmt checks through Vite+ (`bun run check`) |
+| Frontend lint and format | [Oxlint](https://oxc.rs) and Oxfmt for every stack with JavaScript: the React and Vue kits run them through Vite+, the other stacks directly (style in `.oxfmtrc.json`: single quotes, 4 spaces) |
 | TypeScript | With `--react`, `--vue`, `--spa-react` and `--spa-vue`: a full typecheck with `tsc` or `vue-tsc` (`bun run types:check`) |
-| Code coverage | pcov in the development image: `task test -- --coverage` shows the coverage. No minimum is enforced. |
+| Code coverage | Minimum **100%**, measured with pcov: every line of your code needs a test. Lines of the starter kit that its own tests don't reach are excluded once, with PHPUnit's `@codeCoverageIgnore` markers. |
 | [Essentials](https://github.com/nunomaduro/essentials) | Stricter Laravel defaults: strict models, automatic eager loading, immutable dates, no real HTTP requests or sleeps in tests, and in production HTTPS URLs and no destructive Artisan commands |
 
 ### Working with AI agents
@@ -165,10 +165,10 @@ The quality checks are also Composer scripts, so `task check`, the sandbox and C
 
 | Script | What it runs |
 | :--- | :--- |
-| `composer qa` | Everything `task check` runs |
+| `composer qa` | Everything `task check` runs (the tests run once, with coverage) |
 | `composer qa:ci` | The same, but Rector, Pint and the frontend formatter only report instead of changing files (used by CI) |
-| `composer rector`, `fix`, `stan`, `test:unit`, `test:types` | Rector, Pint, Larastan, Pest and the type-coverage check on their own |
-| `composer test:coverage` | The tests with a code-coverage report |
+| `composer rector`, `fix`, `stan`, `test:unit`, `test:types` | Rector, Pint, Larastan, the tests without coverage, and the type-coverage check on their own |
+| `composer test:coverage` | The tests with coverage; fails below 100% |
 
 ## Development environment
 
@@ -245,7 +245,7 @@ A workflow merges minor and patch updates automatically once all required checks
 1. Go to **Settings → General** and enable **Allow auto-merge**.
 2. Go to **Settings → Rules → Rulesets**, create a branch ruleset for the default branch, and enable **Require status checks to pass**. Add these checks:
    - In a project: **Format, Analyse & Test** and **Build Docker Image**.
-   - In this template repository: the six **Skeleton smoke test** jobs, named after their flags (for example `--react --mailpit --redis`).
+   - In this template repository: the seven **Skeleton smoke test** jobs, named after their flags (for example `--react --mailpit --redis`).
 3. In the same ruleset, enable **Block force pushes** and **Restrict deletions**, and add **Repository admin** to the bypass list so you can still push directly.
 
 The checks only appear in the list after they have run once. Without a ruleset the workflow does not merge anything, because it would merge before the checks finish.

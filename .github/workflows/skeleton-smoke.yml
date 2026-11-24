@@ -27,6 +27,7 @@ jobs:
           - --react --mailpit --redis
           - --vue --no-auth
           - --livewire --filament
+          - --livewire --no-auth
           - --blade
           - --spa-react
           - --spa-vue

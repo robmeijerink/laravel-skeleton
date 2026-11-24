@@ -20,7 +20,7 @@ Laravel project on PostgreSQL. All tooling runs in Docker via Task; PHP, Compose
 ## Rules
 
 - For new behavior, write a failing test first, then the implementation.
-- Pest has arch tests (`tests/Unit/ArchTest.php`) and a type-coverage minimum (`--min=100` in the `test:types` script in `composer.json`); never lower it. Larastan runs at `level: max` in `phpstan.neon`, with Pest's PHPStan plugin installed. Fix the code; don't add `@phpstan-ignore` or grow the baseline without asking.
+- Pest has arch tests (`tests/Unit/ArchTest.php`), and both type coverage and code coverage must be 100% (`test:types` and `test:coverage` in `composer.json`); never lower them, and never add `@codeCoverageIgnore` or `@pest-ignore-type` to new code: write the test or the type. Larastan runs at `level: max` in `phpstan.neon`, with Pest's PHPStan plugin installed. Fix the code; don't add `@phpstan-ignore` or grow the baseline without asking.
 - `declare(strict_types=1);` in every PHP file that you create. Type every parameter, return value and property.
 - Ask before adding a dependency. Add with `task composer -- require <pkg>` or `task bun -- add <pkg>`.
 - Never run `config:cache` locally: it writes every secret in plain text to `bootstrap/cache/config.php`.
